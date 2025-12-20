@@ -1,9 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { mockCases } from "../data/mockCases";
+import Hero from "../modules/home/Hero";
 
 const translations = {
   en: {
@@ -62,262 +61,75 @@ const translations = {
     step1: "Submit a missing or found report with photos and key details.",
     step2: "Our team and partners verify and surface urgent cases first.",
     step3: "Community and authorities collaborate to locate and reunite.",
-    bilingual: "English",
-  },
-  ur: {
-    heroTitle: "فاؤنڈ پاکستان",
-    heroSubtitle:
-      "گمشدہ یا ملنے والے افراد کی اطلاع دیں، تلاش کریں اور ملائیں۔ خاندان، رضاکار اور حکام ایک ساتھ۔",
-    searchPlaceholder: "نام، علاقے یا تفصیل سے تلاش کریں",
-    filters: "فلٹرز",
-    caseType: "کیس کی قسم",
-    status: "حالت",
-    city: "شہر/علاقہ",
-    gender: "جنس",
-    priority: "ترجیح",
-    badge: "بیج",
-    date: "تاریخ",
-    age: "عمر",
-    missing: "گمشدہ",
-    found: "ملنے والا",
-    open: "کھلا",
-    resolved: "حل شدہ",
-    male: "مرد",
-    female: "خاتون",
-    any: "کوئی بھی",
-    high: "زیادہ",
-    medium: "درمیانی",
-    low: "کم",
-    urgent: "ہنگامی",
-    child: "بچہ",
-    elderly: "معمر",
-    adult: "بالغ",
-    cases: "کیسز",
-    activeCases: "فعال کیسز",
-    resolvedCases: "حل شدہ",
     newToday: "آج کے نئے",
     viewCase: "کیس دیکھیں",
-    reported: "درج شدہ",
-    lastSeen: "آخری جگہ",
-    foundAt: "جہاں ملا",
-    statusLabel: "حالت",
-    priorityLabel: "ترجیح",
-    badgesLabel: "بیجز",
-    location: "مقام",
-    map: "نقشہ",
-    gallery: "میڈیا",
-    ctaPrimary: "نیا کیس درج کریں",
-    ctaSecondary: "طریقہ کار دیکھیں",
-    authTitle: "اپنا اکاؤنٹ کھولیں",
     signIn: "سائن ان",
     signUp: "اکاؤنٹ بنائیں",
     reset: "پاس ورڈ ری سیٹ کریں",
     email: "ای میل",
-    password: "پاس ورڈ",
-    name: "مکمل نام",
-    submit: "جمع کریں",
+        // Mock numbers for hero stats; detailed browse moved to /cases
+        return { active: 12, resolved: 34, total: 120, newToday: 3 };
     worksTitle: "یہ کیسے کام کرتا ہے",
-    step1: "گمشدہ یا ملنے والے کی اطلاع تصاویر اور تفصیلات کے ساتھ دیں۔",
-    step2: "ہماری ٹیم اور پارٹنرز تصدیق کر کے اہم کیسز کو نمایاں کرتے ہیں۔",
     step3: "کمیونٹی اور حکام مل کر تلاش اور ملاپ کرتے ہیں۔",
     bilingual: "اردو",
   },
 };
 
 const badgeCopy = {
-  urgent: { en: "Urgent", ur: "ہنگامی" },
-  child: { en: "Child", ur: "بچہ" },
-  elderly: { en: "Elderly", ur: "معمر" },
-  adult: { en: "Adult", ur: "بالغ" },
-};
+            {/* Top bar minimal */}
+            <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="glass-card glow-ring neo-press flex h-12 w-12 items-center justify-center rounded-2xl">
+                  <div className="h-6 w-6 rounded-full bg-gradient-to-br from-emerald-400 to-amber-300 shadow-lg" />
+                </div>
+                <div>
+                  <div className="text-lg font-semibold text-white">Found Pakistan</div>
+                  <div className="text-sm text-emerald-100/80">Reunite with care</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setLang("en")}
+                  className={`glass-card neo-press rounded-full px-4 py-2 text-sm ${
+                    lang === "en" ? "border border-emerald-400/60 text-white" : "text-emerald-100/80"
+                  }`}
+                >
+                  EN
+                </button>
+                <button
+                  onClick={() => setLang("ur")}
+                  className={`glass-card neo-press rounded-full px-4 py-2 text-sm urdu-text ${
+                    lang === "ur" ? "border border-emerald-400/60 text-white" : "text-emerald-100/80"
+                  }`}
+                >
+                  اردو
+                </button>
+                <Link href="/report" className="glass-card neo-press rounded-full px-4 py-2 text-sm text-white">
+                  {copy.ctaPrimary}
+                </Link>
+              </div>
+            </header>
 
-function CaseBadge({ tag, lang }) {
-  const label = badgeCopy[tag]?.[lang] || tag;
-  return (
-    <span className="rounded-full bg-white/10 px-3 py-1 text-xs uppercase tracking-wide text-emerald-100">
-      {label}
-    </span>
-  );
-}
+            <Hero copy={copy} stats={stats} />
 
-function TagPill({ children }) {
-  return (
-    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-emerald-50">
-      {children}
-    </span>
-  );
-}
-
-function SectionTitle({ en, ur }) {
-  return (
-    <div className="flex items-baseline gap-2">
-      <h2 className="text-lg font-semibold text-emerald-100">{en}</h2>
-      <span className="urdu-text text-sm text-emerald-50">{ur}</span>
-    </div>
-  );
-}
-
-export default function Home() {
-  const [lang, setLang] = useState("en");
-  const [search, setSearch] = useState("");
-  const [caseType, setCaseType] = useState("any");
-  const [status, setStatus] = useState("any");
-  const [city, setCity] = useState("any");
-  const [gender, setGender] = useState("any");
-  const [priority, setPriority] = useState("any");
-  const [badge, setBadge] = useState("any");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [ageMin, setAgeMin] = useState(0);
-  const [ageMax, setAgeMax] = useState(80);
-  const [selectedCaseId, setSelectedCaseId] = useState(mockCases[0].case_id);
-
-  const copy = translations[lang];
-
-  const filteredCases = useMemo(() => {
-    return mockCases.filter((c) => {
-      const textMatch = (search || "").toLowerCase();
-      const haystack = [
-        c.name,
-        c.name_ur,
-        c.city,
-        c.area,
-        c.description,
-        c.description_ur,
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      const matchesSearch = textMatch ? haystack.includes(textMatch) : true;
-      const matchesType = caseType === "any" ? true : c.case_type === caseType;
-      const matchesStatus = status === "any" ? true : c.status === status;
-      const matchesGender = gender === "any" ? true : c.gender === gender;
-      const matchesPriority =
-        priority === "any" ? true : c.priority === priority;
-      const matchesBadge =
-        badge === "any" ? true : (c.badge_tags || []).includes(badge);
-      const matchesCity = city === "any" ? true : c.city === city;
-
-      const created = new Date(c.created_at);
-      const fromOk = dateFrom ? created >= new Date(dateFrom) : true;
-      const toOk = dateTo ? created <= new Date(dateTo) : true;
-
-      const ageValue = c.age || (c.age_range ? parseInt(c.age_range) : 0);
-      const matchesAge = ageValue >= ageMin && ageValue <= ageMax;
-
-      return (
-        matchesSearch &&
-        matchesType &&
-        matchesStatus &&
-        matchesGender &&
-        matchesPriority &&
-        matchesBadge &&
-        matchesCity &&
-        fromOk &&
-        toOk &&
-        matchesAge
-      );
-    });
-  }, [
-    search,
-    caseType,
-    status,
-    gender,
-    priority,
-    badge,
-    city,
-    dateFrom,
-    dateTo,
-    ageMin,
-    ageMax,
-  ]);
-
-  const selectedCase = useMemo(() => {
-    return (
-      filteredCases.find((c) => c.case_id === selectedCaseId) || filteredCases[0]
-    );
-  }, [filteredCases, selectedCaseId]);
-
-  const stats = useMemo(() => {
-    const active = mockCases.filter((c) => c.status === "open").length;
-    const resolved = mockCases.filter((c) => c.status === "resolved").length;
-    return { active, resolved, total: mockCases.length, newToday: 3 };
-  }, []);
-
-  const cities = Array.from(new Set(mockCases.map((c) => c.city)));
-
-  return (
-    <div className="relative overflow-hidden px-4 pb-24 pt-10 sm:px-8 lg:px-16">
-      <div className="hero-blob blob-1" />
-      <div className="hero-blob blob-2" />
-      <div className="relative mx-auto flex max-w-6xl flex-col gap-10">
-        {/* Top bar */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="glass-card glow-ring neo-press flex h-12 w-12 items-center justify-center rounded-2xl">
+            {/* How it works only */}
+            <section id="how" className="glass-card rounded-3xl border border-white/10 p-6 sm:p-10">
+              <div className="flex items-baseline gap-2">
+                <h2 className="text-lg font-semibold text-emerald-100">{copy.worksTitle}</h2>
+                <span className="urdu-text text-sm text-emerald-50">{translations.ur.worksTitle}</span>
+              </div>
+              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                {[copy.step1, copy.step2, copy.step3].map((step, idx) => (
+                  <div key={idx} className="glass-card neo-press rounded-2xl border border-white/10 p-4">
+                    <p className="text-sm text-white">{step}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
               <div className="h-6 w-6 rounded-full bg-gradient-to-br from-emerald-400 to-amber-300 shadow-lg" />
             </div>
             <div>
               <div className="text-lg font-semibold text-white">Found Pakistan</div>
-              <div className="text-sm text-emerald-100/80">Reunite with care</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setLang("en")}
-              className={`glass-card neo-press rounded-full px-4 py-2 text-sm ${
-                lang === "en" ? "border border-emerald-400/60 text-white" : "text-emerald-100/80"
-              }`}
-            >
-              EN
-            </button>
-            <button
-              onClick={() => setLang("ur")}
-              className={`glass-card neo-press rounded-full px-4 py-2 text-sm urdu-text ${
-                lang === "ur" ? "border border-emerald-400/60 text-white" : "text-emerald-100/80"
-              }`}
-            >
-              اردو
-            </button>
-            <button className="glass-card neo-press rounded-full px-4 py-2 text-sm text-white">
-              {copy.ctaPrimary}
-            </button>
-          </div>
-        </header>
-
-        {/* Hero */}
-        <section className="glass-card relative overflow-hidden rounded-3xl border border-white/10 p-8 sm:p-12">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-amber-200/10 to-transparent" />
-          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center">
-            <div className="flex-1 space-y-4">
-              <p className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-50">
-                Public + Authorities + Compassion
-              </p>
-              <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">
-                {copy.heroTitle}
-              </h1>
-              <p className="max-w-2xl text-lg text-emerald-50">{copy.heroSubtitle}</p>
-              <div className="flex flex-wrap gap-3">
-                <Link href="/report" className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black">
-                  {copy.ctaPrimary}
-                </Link>
-                <a href="#how" className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">
-                  {copy.ctaSecondary}
-                </a>
-              </div>
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <StatCard label={copy.activeCases} value={stats.active} />
-                <StatCard label={copy.resolvedCases} value={stats.resolved} />
-                <StatCard label={copy.cases} value={stats.total} />
-                <StatCard label={copy.newToday} value={stats.newToday} />
-              </div>
-            </div>
-            <div className="glass-card neo-press relative h-[320px] w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-900/40 via-slate-900/50 to-amber-800/20 p-4">
-              <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
-              <div className="absolute -right-8 -bottom-6 h-40 w-40 rounded-full bg-amber-300/30 blur-3xl" />
-              <div className="relative flex h-full flex-col justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">Live safety net</p>
                   <h3 className="mt-2 text-2xl font-semibold text-white">Map pulse</h3>
                   <p className="text-sm text-emerald-50/90">
                     Geo-tagged cases and verified updates help responders move faster.
