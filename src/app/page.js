@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { mockCases } from "../data/mockCases";
 
@@ -297,12 +298,12 @@ export default function Home() {
               </h1>
               <p className="max-w-2xl text-lg text-emerald-50">{copy.heroSubtitle}</p>
               <div className="flex flex-wrap gap-3">
-                <button className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black">
+                <Link href="/report" className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black">
                   {copy.ctaPrimary}
-                </button>
-                <button className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">
+                </Link>
+                <a href="#how" className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">
                   {copy.ctaSecondary}
-                </button>
+                </a>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <StatCard label={copy.activeCases} value={stats.active} />
@@ -550,9 +551,9 @@ export default function Home() {
                     />
                   </div>
                 </div>
-                <button className="neo-press w-full rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-4 py-3 text-sm font-semibold text-black">
+                <Link href="/report" className="neo-press block w-full rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-4 py-3 text-center text-sm font-semibold text-black">
                   {copy.ctaPrimary}
-                </button>
+                </Link>
               </div>
             ) : (
               <p className="text-sm text-emerald-50">No case selected.</p>
@@ -561,7 +562,7 @@ export default function Home() {
         </section>
 
         {/* How it works */}
-        <section className="glass-card rounded-3xl border border-white/10 p-6 sm:p-10">
+        <section id="how" className="glass-card rounded-3xl border border-white/10 p-6 sm:p-10">
           <SectionTitle en={copy.worksTitle} ur={translations.ur.worksTitle} />
           <div className="mt-6 grid gap-4 sm:grid-cols-3">
             {[copy.step1, copy.step2, copy.step3].map((step, idx) => (
