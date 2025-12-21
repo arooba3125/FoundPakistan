@@ -1,4 +1,5 @@
 import "./globals.css";
+import { AuthProvider } from "@/lib/auth-context";
 import SiteFooter from "../modules/common/Footer";
 
 export const metadata = {
@@ -11,8 +12,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className="antialiased">
-        {children}
-        <SiteFooter />
+        <AuthProvider>
+          {children}
+          <SiteFooter />
+        </AuthProvider>
       </body>
     </html>
   );
