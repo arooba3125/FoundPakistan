@@ -31,27 +31,104 @@ async function apiCall(endpoint, options = {}) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
         window.location.href = '/auth/login';
       }
       throw new Error('Unauthorized');
     }
 
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || `HTTP Error: ${response.status}`);
+    // Handle empty responses (204 No Content, etc.)
+    const contentType = response.headers.get('content-type');
+    const isJson = contentType && contentType.includes('application/json');
+    
+    // If no content or not JSON, return null or empty object
+    if (response.status === 204 || !isJson) {
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `HTTP Error: ${response.status}`);
+      }
+      return null;
     }
 
-    return data;
+    // Parse JSON response
+    let data;
+    let responseText = '';
+    try {
+      responseText = await response.text();
+      data = responseText ? JSON.parse(responseText) : null;
+    } catch (parseError) {
+      // If JSON parsing fails, it might be an HTML error page or plain text
+      if (!response.ok) {
+        // Try to extract error message from text response
+        const errorMsg = responseText || `Invalid response format from server. Status: ${response.status}`;
+        throw new Error(errorMsg);
+      }
+      // If response is ok but not JSON, return the text
+      return responseText || null;
+    }
+
+    if (!response.ok) {
+      // Handle NestJS error format
+      let errorMessage = `HTTP Error: ${response.status}`;
+      
+      if (data) {
+        if (data.message) {
+          // NestJS can return message as string or array
+          errorMessage = Array.isArray(data.message) 
+            ? data.message.join(', ') 
+            : String(data.message);
+        } else if (data.error) {
+          errorMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+        } else if (data.statusCode) {
+          errorMessage = `Error ${data.statusCode}: ${data.message || 'Unknown error'}`;
+        }
+      } else if (responseText) {
+        // If we couldn't parse JSON but have text, use it
+        errorMessage = responseText.length > 200 
+          ? responseText.substring(0, 200) + '...' 
+          : responseText;
+      }
+      
+      // Log full error details for debugging
+      console.error('API Error Response', {
+        status: response.status,
+        statusText: response.statusText,
+        endpoint,
+        url,
+        data,
+        responseText: responseText.substring(0, 500), // Limit log size
+      });
+      
+      throw new Error(errorMessage);
+    }
+
+    // Return null for empty responses, otherwise return the data
+    return data ?? null;
   } catch (error) {
-    // Temporary diagnostic logging to help trace connectivity issues
+    // Handle network errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error('Network error - unable to reach server', {
+        endpoint,
+        url,
+        method: options.method || 'GET',
+      });
+      throw new Error('Unable to connect to server. Please check your connection and ensure the backend is running on http://localhost:3001');
+    }
+
+    // Re-throw if it's already our custom error (it will have a proper message)
+    if (error.message && !error.message.includes('fetch') && error.message !== 'An unexpected error occurred') {
+      throw error;
+    }
+
+    // Otherwise, wrap in a more descriptive error
     console.error('API call failed', {
       endpoint,
       url,
       method: options.method || 'GET',
       message: error?.message,
+      stack: error?.stack,
     });
-    throw error;
+    throw new Error(error?.message || 'An unexpected error occurred');
   }
 }
 

@@ -185,9 +185,11 @@ export default function Home() {
       try {
         setLoading(true);
         const data = await casesAPI.getAll();
-        setCases(data);
-        if (data.length > 0 && !selectedCaseId) {
-          setSelectedCaseId(data[0].id);
+        // Ensure data is an array
+        const casesArray = Array.isArray(data) ? data : [];
+        setCases(casesArray);
+        if (casesArray.length > 0 && !selectedCaseId) {
+          setSelectedCaseId(casesArray[0].id);
         }
       } catch (error) {
         console.error("Failed to fetch cases:", error);
