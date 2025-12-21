@@ -3,7 +3,8 @@
  * Handles all HTTP requests to the NestJS API at localhost:3001
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+// Use relative base and Next.js rewrites to proxy to backend (avoids CORS)
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 // Helper function for API calls
 async function apiCall(endpoint, options = {}) {
@@ -43,7 +44,13 @@ async function apiCall(endpoint, options = {}) {
 
     return data;
   } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error);
+    // Temporary diagnostic logging to help trace connectivity issues
+    console.error('API call failed', {
+      endpoint,
+      url,
+      method: options.method || 'GET',
+      message: error?.message,
+    });
     throw error;
   }
 }

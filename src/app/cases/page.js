@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Filters from "../../modules/cases/Filters";
 import CaseCard from "../../modules/cases/CaseCard";
 import CaseDetailPanel from "../../modules/cases/CaseDetailPanel";
-import { mockCases } from "../../data/mockCases";
+import { casesAPI } from "../../lib/api";
 
 const translations = {
   en: {
@@ -47,6 +48,7 @@ const translations = {
 export default function CasesPage() {
   const [lang] = useState("en");
   const copy = translations[lang];
+  const router = useRouter();
 
   const [state, setState] = useState({
     search: "",
@@ -61,41 +63,67 @@ export default function CasesPage() {
     ageMin: 0,
     ageMax: 80,
   });
-  const [selectedCaseId, setSelectedCaseId] = useState(mockCases[0].case_id);
+  const [cases, setCases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCaseId, setSelectedCaseId] = useState(null);
+
+  useEffect(() => {
+    async function fetchCases() {
+      try {
+        setLoading(true);
+        const filters = {};
+        if (state.caseType !== "any") filters.type = state.caseType;
+        if (state.status !== "any") filters.status = state.status;
+        if (state.search) filters.q = state.search;
+        
+        const data = await casesAPI.getAll(filters);
+        setCases(data);
+        if (data.length > 0 && !selectedCaseId) {
+          setSelectedCaseId(data[0].id);
+        }
+      } catch (error) {
+        console.error("Failed to fetch cases:", error);
+        setCases([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCases();
+  }, [state.caseType, state.status, state.search]);
 
   const filteredCases = useMemo(() => {
-    return mockCases.filter((c) => {
+    return cases.filter((c) => {
       const textMatch = (state.search || "").toLowerCase();
-      const haystack = [c.name, c.city, c.area, c.description].join(" ").toLowerCase();
+      const haystack = [c.personName, c.lastSeenLocation, c.description].join(" ").toLowerCase();
       const matchesSearch = textMatch ? haystack.includes(textMatch) : true;
-      const matchesType = state.caseType === "any" ? true : c.case_type === state.caseType;
-      const matchesStatus = state.status === "any" ? true : c.status === state.status;
       const matchesGender = state.gender === "any" ? true : c.gender === state.gender;
-      const matchesPriority = state.priority === "any" ? true : c.priority === state.priority;
-      const matchesBadge = state.badge === "any" ? true : (c.badge_tags || []).includes(state.badge);
-      const matchesCity = state.city === "any" ? true : c.city === state.city;
-      const created = new Date(c.created_at);
+      const matchesCity = state.city === "any" ? true : c.lastSeenLocation?.includes(state.city);
+      const created = new Date(c.createdAt);
       const fromOk = state.dateFrom ? created >= new Date(state.dateFrom) : true;
       const toOk = state.dateTo ? created <= new Date(state.dateTo) : true;
-      const ageValue = c.age || (c.age_range ? parseInt(c.age_range) : 0);
+      const ageValue = c.age || 0;
       const matchesAge = ageValue >= state.ageMin && ageValue <= state.ageMax;
       return (
         matchesSearch &&
-        matchesType &&
-        matchesStatus &&
         matchesGender &&
-        matchesPriority &&
-        matchesBadge &&
         matchesCity &&
         fromOk &&
         toOk &&
         matchesAge
       );
     });
-  }, [state]);
+  }, [cases, state]);
 
-  const selectedCase = useMemo(() => filteredCases.find((c) => c.case_id === selectedCaseId) || filteredCases[0], [filteredCases, selectedCaseId]);
-  const cities = Array.from(new Set(mockCases.map((c) => c.city)));
+  const selectedCase = useMemo(() => filteredCases.find((c) => c.id === selectedCaseId) || filteredCases[0], [filteredCases, selectedCaseId]);
+  const cities = Array.from(new Set(cases.map((c) => c.lastSeenLocation).filter(Boolean)));
+
+  if (loading) {
+    return (
+      <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-10 sm:px-8 lg:px-16">
+        <div className="text-center text-white">Loading cases...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative mx-auto max-w-6xl px-4 pb-24 pt-10 sm:px-8 lg:px-16">
@@ -116,7 +144,7 @@ export default function CasesPage() {
       <section className="mt-8 grid gap-8 lg:grid-cols-[1fr_420px]">
         <div className="card-grid">
           {filteredCases.map((c) => (
-            <CaseCard key={c.case_id} c={c} lang={lang} copy={copy} onSelect={setSelectedCaseId} />
+            <CaseCard key={c.id} c={c} lang={lang} copy={copy} onSelect={setSelectedCaseId} />
           ))}
         </div>
         <CaseDetailPanel c={selectedCase} copy={copy} />

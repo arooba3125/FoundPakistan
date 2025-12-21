@@ -10,27 +10,33 @@ export default function CaseDetailPanel({ c, copy }) {
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 overflow-hidden rounded-xl border border-white/10">
             {c.media?.[0] && (
-              <Image src={c.media[0].file_url} alt={c.name} width={48} height={48} className="h-full w-full object-cover" />
+              <Image src={c.media[0].fileUrl} alt={c.personName} width={48} height={48} className="h-full w-full object-cover" />
             )}
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">{copy.statusLabel}</p>
-            <p className="text-lg font-semibold text-white">{c.status === "open" ? copy.open : copy.resolved}</p>
+            <p className="text-lg font-semibold text-white">{c.status === "OPEN" ? copy.open : copy.resolved}</p>
           </div>
         </div>
         <div>
-          <h3 className="text-2xl font-semibold text-white">{c.name}</h3>
+          <h3 className="text-2xl font-semibold text-white">{c.personName}</h3>
           <p className="text-sm text-emerald-50/90">{c.description}</p>
         </div>
         <div className="space-y-2 text-sm text-emerald-100">
           <p>
-            <strong className="text-white">{copy.priorityLabel}:</strong> {c.priority}
+            <strong className="text-white">{copy.age}:</strong> {c.age}
           </p>
           <p>
-            <strong className="text-white">{copy.location}:</strong> {c.last_seen_location || c.found_location}
+            <strong className="text-white">{copy.gender}:</strong> {c.gender}
           </p>
           <p>
-            <strong className="text-white">{c.case_type === "missing" ? copy.lastSeen : copy.foundAt}:</strong> {c.last_seen_date || c.found_date}
+            <strong className="text-white">{copy.location}:</strong> {c.lastSeenLocation}
+          </p>
+          <p>
+            <strong className="text-white">{c.type === "MISSING" ? copy.lastSeen : copy.foundAt}:</strong> {new Date(c.lastSeenAt).toLocaleDateString()}
+          </p>
+          <p>
+            <strong className="text-white">{copy.contact}:</strong> {c.reporterContact}
           </p>
         </div>
         <div className="space-y-2">
@@ -38,7 +44,7 @@ export default function CaseDetailPanel({ c, copy }) {
           <div className="overflow-hidden rounded-xl border border-white/10">
             <iframe
               title="Case location"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(c.last_seen_location || c.found_location || "Pakistan")}&output=embed`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(c.lastSeenLocation || "Pakistan")}&output=embed`}
               className="h-48 w-full"
               loading="lazy"
               allowFullScreen
