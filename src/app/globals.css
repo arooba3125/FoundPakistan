@@ -9,6 +9,10 @@
   --gold: #f7c266;
   --glass: rgba(255, 255, 255, 0.06);
   --card-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  --font-inter: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --font-noto-urdu: "Noto Nastaliq Urdu", "Noto Nastaliq", "Scheherazade New",
+    "Times New Roman", serif;
 }
 
 @theme inline {
@@ -31,8 +35,7 @@ body {
     radial-gradient(circle at 50% 80%, #16253a, #080b10 45%),
     linear-gradient(135deg, #0d1117, #0a0d13 50%, #0d1117 100%);
   color: var(--foreground);
-  font-family: var(--font-inter), "Inter", system-ui, -apple-system,
-    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--font-inter);
   background-attachment: fixed;
 }
 
@@ -105,7 +108,7 @@ body {
 }
 
 .urdu-text {
-  font-family: var(--font-noto-urdu), "Noto Nastaliq Urdu", serif;
+  font-family: var(--font-noto-urdu);
 }
 
 a {

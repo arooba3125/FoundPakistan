@@ -20,7 +20,7 @@ export default function MediaUploadStep({ form, setForm, langPack }) {
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-white">{langPack.mediaUpload}</h2>
       <p className="text-sm text-emerald-100/80">{langPack.addPhotos}</p>
-      <label className="neo-press glow-ring inline-block cursor-pointer rounded-2xl bg-gradient-to-r from-emerald-400 to-amber-300 px-5 py-3 text-sm font-semibold text-black">
+      <label className="neo-press glow-ring inline-block cursor-pointer rounded-2xl bg-linear-to-r from-emerald-400 to-amber-300 px-5 py-3 text-sm font-semibold text-black">
         Upload
         <input type="file" multiple className="hidden" onChange={(e) => onFiles(e.target.files)} />
       </label>

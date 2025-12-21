@@ -259,7 +259,7 @@ export default function Home() {
         <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <div className="glass-card glow-ring neo-press flex h-12 w-12 items-center justify-center rounded-2xl">
-              <div className="h-6 w-6 rounded-full bg-gradient-to-br from-emerald-400 to-amber-300 shadow-lg" />
+              <div className="h-6 w-6 rounded-full bg-linear-to-br from-emerald-400 to-amber-300 shadow-lg" />
             </div>
             <div>
               <div className="text-lg font-semibold text-white">Found Pakistan</div>
@@ -291,7 +291,7 @@ export default function Home() {
 
         {/* Hero */}
         <section className="glass-card relative overflow-hidden rounded-3xl border border-white/10 p-8 sm:p-12">
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-400/10 via-amber-200/10 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-br from-emerald-400/10 via-amber-200/10 to-transparent" />
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center">
             <div className="flex-1 space-y-4">
               <p className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-50">
@@ -302,7 +302,7 @@ export default function Home() {
               </h1>
               <p className="max-w-2xl text-lg text-emerald-50">{copy.heroSubtitle}</p>
               <div className="flex flex-wrap gap-3">
-                <Link href="/report" className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black">
+                <Link href="/report" className="neo-press glow-ring rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black">
                   {copy.ctaPrimary}
                 </Link>
                 <a href="#how" className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">
@@ -316,7 +316,7 @@ export default function Home() {
                 <StatCard label={copy.newToday} value={stats.newToday} />
               </div>
             </div>
-            <div className="glass-card neo-press relative h-[320px] w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-emerald-900/40 via-slate-900/50 to-amber-800/20 p-4">
+            <div className="glass-card neo-press relative h-80 w-full max-w-md overflow-hidden rounded-2xl border border-white/10 bg-linear-to-br from-emerald-900/40 via-slate-900/50 to-amber-800/20 p-4">
               <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-emerald-400/20 blur-3xl" />
               <div className="absolute -right-8 -bottom-6 h-40 w-40 rounded-full bg-amber-300/30 blur-3xl" />
               <div className="relative flex h-full flex-col justify-between">
@@ -447,7 +447,7 @@ export default function Home() {
                       sizes="(max-width: 768px) 100vw, 33vw"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
                   <div className="absolute left-3 top-3 flex gap-2">
                     <CaseBadge tag={c.priority === "high" ? "urgent" : c.badge_tags?.[0] || "urgent"} lang={lang} />
                   </div>
@@ -555,7 +555,7 @@ export default function Home() {
                     />
                   </div>
                 </div>
-                <Link href="/report" className="neo-press block w-full rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-4 py-3 text-center text-sm font-semibold text-black">
+                <Link href="/report" className="neo-press block w-full rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-4 py-3 text-center text-sm font-semibold text-black">
                   {copy.ctaPrimary}
                 </Link>
               </div>
@@ -639,7 +639,7 @@ function AuthCard({ title, copy }) {
             className="glass-card w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white placeholder:text-emerald-100/60"
           />
         )}
-        <button className="neo-press w-full rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-4 py-3 text-sm font-semibold text-black">
+        <button className="neo-press w-full rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-4 py-3 text-sm font-semibold text-black">
           {copy.submit}
         </button>
       </form>

@@ -20,7 +20,7 @@ export default function CaseCard({ c, lang, copy, onSelect }) {
             sizes="(max-width: 768px) 100vw, 33vw"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
         <div className="absolute bottom-3 left-3 flex flex-col gap-1">
           <h3 className="text-lg font-semibold text-white">{lang === "ur" ? c.name_ur : c.name}</h3>
           <p className="text-sm text-emerald-100">

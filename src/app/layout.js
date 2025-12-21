@@ -1,18 +1,5 @@
-import { Inter, Noto_Nastaliq_Urdu } from "next/font/google";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const notoUrdu = Noto_Nastaliq_Urdu({
-  variable: "--font-noto-urdu",
-  weight: "400",
-  subsets: ["arabic"],
-  display: "swap",
-});
+import SiteFooter from "../modules/common/Footer";
 
 export const metadata = {
   title: "Found Pakistan | Find & Reunite",
@@ -23,8 +10,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${notoUrdu.variable} antialiased`}>
+      <body className="antialiased">
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
