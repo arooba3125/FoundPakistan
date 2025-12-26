@@ -27,11 +27,15 @@ export class AuthService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
-    const user = await this.usersService.create(email, hashedPassword, name);
+    // Create user (verified by default)
+    const user = await this.usersService.create(
+      email,
+      hashedPassword,
+      name,
+    );
 
     // Generate token
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user.id, user.email, user.role);
 
     return {
       access_token: token,
@@ -39,7 +43,10 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
+        isVerified: user.isVerified,
       },
+      message: 'Registration successful! You can now login.',
     };
   }
 
@@ -59,7 +66,7 @@ export class AuthService {
     }
 
     // Generate token
-    const token = this.generateToken(user.id, user.email);
+    const token = this.generateToken(user.id, user.email, user.role);
 
     return {
       access_token: token,
@@ -67,6 +74,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        role: user.role,
+        isVerified: user.isVerified,
       },
     };
   }
@@ -79,8 +88,8 @@ export class AuthService {
     return user;
   }
 
-  private generateToken(userId: string, email: string): string {
-    const payload = { sub: userId, email };
+  private generateToken(userId: string, email: string, role: string): string {
+    const payload = { sub: userId, email, role };
     return this.jwtService.sign(payload);
   }
 }

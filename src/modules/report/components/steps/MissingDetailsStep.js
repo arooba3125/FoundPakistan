@@ -15,12 +15,15 @@ export default function MissingDetailsStep({ form, setForm, langPack }) {
           options={[
             { value: "male", label: langPack.male },
             { value: "female", label: langPack.female },
+            { value: "other", label: langPack.other },
           ]}
         />
         <Input placeholder={langPack.clothing} value={form.clothing || ""} onChange={(e) => setForm({ clothing: e.target.value })} />
       </div>
       <TextArea placeholder={langPack.physicalFeatures} value={form.physical_features || ""} onChange={(e) => setForm({ physical_features: e.target.value })} />
       <div className="grid gap-4 sm:grid-cols-2">
+        <Input placeholder="City" value={form.city || ""} onChange={(e) => setForm({ city: e.target.value })} />
+        <Input placeholder="Area" value={form.area || ""} onChange={(e) => setForm({ area: e.target.value })} />
         <Input placeholder={langPack.lastSeenLocation} value={form.last_seen_location || ""} onChange={(e) => setForm({ last_seen_location: e.target.value })} />
         <Input type="date" placeholder={langPack.lastSeenDate} value={form.last_seen_date || ""} onChange={(e) => setForm({ last_seen_date: e.target.value })} />
       </div>

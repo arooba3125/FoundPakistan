@@ -11,6 +11,18 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
 
+  // Increase body size limit to handle file uploads (50MB)
+  app.use((req, res, next) => {
+    req.on('data', () => {});
+    next();
+  });
+
+  // Configure JSON body size limit
+  const json = require('body-parser').json({ limit: '50mb' });
+  const urlencoded = require('body-parser').urlencoded({ limit: '50mb', extended: true });
+  app.use(json);
+  app.use(urlencoded);
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

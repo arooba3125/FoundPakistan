@@ -29,7 +29,14 @@ let UsersService = class UsersService {
         return this.usersRepository.findOne({ where: { id } });
     }
     async create(email, password, name) {
-        const user = this.usersRepository.create({ email, password, name });
+        const isAdmin = process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+        const user = this.usersRepository.create({
+            email,
+            password,
+            name,
+            role: isAdmin ? user_entity_1.UserRole.ADMIN : user_entity_1.UserRole.USER,
+            isVerified: true,
+        });
         return this.usersRepository.save(user);
     }
 };

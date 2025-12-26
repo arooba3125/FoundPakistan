@@ -30,7 +30,7 @@ export default function SiteFooter() {
             <p className="text-sm font-semibold text-white mb-3">Explore</p>
             <ul className="space-y-2 text-sm text-emerald-100">
               <li><Link href="/">Home</Link></li>
-              <li><Link href="/cases">Cases</Link></li>
+              <li><Link href="/">Cases</Link></li>
               <li><Link href="/map">Map</Link></li>
               <li><Link href="/admin">Admin</Link></li>
             </ul>

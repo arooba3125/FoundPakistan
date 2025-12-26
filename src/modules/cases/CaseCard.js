@@ -13,7 +13,7 @@ export default function CaseCard({ c, lang, copy, onSelect }) {
       <div className="relative h-48 w-full overflow-hidden">
         {c.media?.[0] && (
           <Image
-            src={c.media[0].file_url}
+            src={c.media[0].file_url || c.media[0].url}
             alt={c.name}
             fill
             className="object-cover"

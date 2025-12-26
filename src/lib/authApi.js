@@ -36,7 +36,12 @@ export const authApi = {
       },
     });
     if (!response.ok) {
-      throw new Error('Failed to fetch profile');
+      let message = 'Failed to fetch profile';
+      try {
+        const data = await response.json();
+        message = data.message || message;
+      } catch {}
+      throw new Error(`${message} (Status: ${response.status})`);
     }
     return response.json();
   },

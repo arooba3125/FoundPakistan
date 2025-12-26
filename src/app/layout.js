@@ -1,6 +1,6 @@
 import "./globals.css";
-import SiteFooter from "../modules/common/Footer";
 import { AuthProvider } from "@/lib/AuthContext";
+import SiteShell from "../modules/common/SiteShell";
 
 export const metadata = {
   title: "Found Pakistan | Find & Reunite",
@@ -13,8 +13,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className="antialiased">
         <AuthProvider>
-          {children}
-          <SiteFooter />
+          <SiteShell>{children}</SiteShell>
         </AuthProvider>
       </body>
     </html>

@@ -11,7 +11,10 @@ export declare class AuthService {
             id: string;
             email: string;
             name: string;
+            role: import("../users/user.entity").UserRole;
+            isVerified: boolean;
         };
+        message: string;
     }>;
     login(loginDto: LoginDto): Promise<{
         access_token: string;
@@ -19,6 +22,8 @@ export declare class AuthService {
             id: string;
             email: string;
             name: string;
+            role: import("../users/user.entity").UserRole;
+            isVerified: boolean;
         };
     }>;
     validateUser(userId: string): Promise<import("../users/user.entity").User>;

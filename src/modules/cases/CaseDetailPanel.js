@@ -10,7 +10,7 @@ export default function CaseDetailPanel({ c, copy }) {
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 overflow-hidden rounded-xl border border-white/10">
             {c.media?.[0] && (
-              <Image src={c.media[0].file_url} alt={c.name} width={48} height={48} className="h-full w-full object-cover" />
+              <Image src={c.media[0].file_url || c.media[0].url} alt={c.name} width={48} height={48} className="h-full w-full object-cover" />
             )}
           </div>
           <div>

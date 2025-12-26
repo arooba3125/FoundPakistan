@@ -5,6 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+export enum UserRole {
+  USER = 'user',
+  ADMIN = 'admin',
+}
+
 
 @Entity('users')
 export class User {
@@ -19,6 +24,22 @@ export class User {
 
   @Column({ nullable: true })
   name: string;
+
+  @Column({
+    type: 'enum',
+    enum: UserRole,
+    default: UserRole.USER,
+  })
+  role: UserRole;
+
+  @Column({ default: false })
+  isVerified: boolean;
+
+  @Column({ nullable: true, type: 'varchar' })
+  verificationToken: string | null;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  verificationExpires: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -62,14 +62,17 @@ let AuthService = class AuthService {
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await this.usersService.create(email, hashedPassword, name);
-        const token = this.generateToken(user.id, user.email);
+        const token = this.generateToken(user.id, user.email, user.role);
         return {
             access_token: token,
             user: {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                role: user.role,
+                isVerified: user.isVerified,
             },
+            message: 'Registration successful! You can now login.',
         };
     }
     async login(loginDto) {
@@ -82,13 +85,15 @@ let AuthService = class AuthService {
         if (!isPasswordValid) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const token = this.generateToken(user.id, user.email);
+        const token = this.generateToken(user.id, user.email, user.role);
         return {
             access_token: token,
             user: {
                 id: user.id,
                 email: user.email,
                 name: user.name,
+                role: user.role,
+                isVerified: user.isVerified,
             },
         };
     }
@@ -99,8 +104,8 @@ let AuthService = class AuthService {
         }
         return user;
     }
-    generateToken(userId, email) {
-        const payload = { sub: userId, email };
+    generateToken(userId, email, role) {
+        const payload = { sub: userId, email, role };
         return this.jwtService.sign(payload);
     }
 };

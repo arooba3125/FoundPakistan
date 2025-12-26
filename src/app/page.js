@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
-import { mockCases } from "../data/mockCases";
+import { caseApi } from "@/lib/caseApi";
 
 const translations = {
   en: {
@@ -164,7 +164,7 @@ function SectionTitle({ text, lang }) {
 }
 
 export default function Home() {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
   const [lang, setLang] = useState("en");
   const [search, setSearch] = useState("");
@@ -178,26 +178,40 @@ export default function Home() {
   const [dateTo, setDateTo] = useState("");
   const [ageMin, setAgeMin] = useState(0);
   const [ageMax, setAgeMax] = useState(80);
-  const [selectedCaseId, setSelectedCaseId] = useState(mockCases[0].case_id);
+  const [cases, setCases] = useState([]);
+  const [selectedCaseId, setSelectedCaseId] = useState(null);
+  const [loadingCases, setLoadingCases] = useState(true);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
 
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    const load = async () => {
+      setLoadingCases(true);
+      try {
+        const data = await caseApi.getCases({ status: 'verified' });
+        setCases(data || []);
+        if (data && data[0]) setSelectedCaseId(data[0].case_id || data[0].id);
+      } catch (err) {
+        console.error("Failed to load cases:", err);
+        setCases([]);
+      } finally {
+        setLoadingCases(false);
+      }
+    };
+    load();
+  }, []);
+
+  const goReport = () => {
+    if (!isAuthenticated) {
       router.push("/login");
+      return;
     }
-  }, [isAuthenticated, loading, router]);
-
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
+    router.push("/report");
+  };
 
   const copy = translations[lang];
 
   const filteredCases = useMemo(() => {
-    return mockCases.filter((c) => {
+    return cases.filter((c) => {
       const textMatch = (search || "").toLowerCase();
       const haystack = [
         c.name,
@@ -212,15 +226,15 @@ export default function Home() {
 
       const matchesSearch = textMatch ? haystack.includes(textMatch) : true;
       const matchesType = caseType === "any" ? true : c.case_type === caseType;
-      const matchesStatus = status === "any" ? true : c.status === status;
+      const matchesStatus = status === "any" ? true : (c.status || "").toLowerCase() === status.toLowerCase();
       const matchesGender = gender === "any" ? true : c.gender === gender;
       const matchesPriority =
-        priority === "any" ? true : c.priority === priority;
+        priority === "any" ? true : (c.priority || "").toLowerCase() === priority.toLowerCase();
       const matchesBadge =
         badge === "any" ? true : (c.badge_tags || []).includes(badge);
       const matchesCity = city === "any" ? true : c.city === city;
 
-      const created = new Date(c.created_at);
+      const created = new Date(c.createdAt || c.created_at || Date.now());
       const fromOk = dateFrom ? created >= new Date(dateFrom) : true;
       const toOk = dateTo ? created <= new Date(dateTo) : true;
 
@@ -241,6 +255,7 @@ export default function Home() {
       );
     });
   }, [
+    cases,
     search,
     caseType,
     status,
@@ -255,42 +270,32 @@ export default function Home() {
   ]);
 
   const selectedCase = useMemo(() => {
-    return (
-      filteredCases.find((c) => c.case_id === selectedCaseId) || filteredCases[0]
-    );
+    if (!selectedCaseId && filteredCases[0]) {
+      setSelectedCaseId(filteredCases[0].case_id || filteredCases[0].id);
+    }
+    return filteredCases.find((c) => c.case_id === selectedCaseId || c.id === selectedCaseId) || filteredCases[0] || null;
   }, [filteredCases, selectedCaseId]);
 
   const stats = useMemo(() => {
-    const active = mockCases.filter((c) => c.status === "open").length;
-    const resolved = mockCases.filter((c) => c.status === "resolved").length;
-    return { active, resolved, total: mockCases.length, newToday: 3 };
-  }, []);
+    const active = cases.filter((c) => {
+      const s = (c.status || "").toLowerCase();
+      return !["found", "rejected"].includes(s);
+    }).length;
+    const resolved = cases.filter((c) => (c.status || "").toLowerCase() === "found").length;
+    return { active, resolved, total: cases.length, newToday: Math.min(3, cases.length || 0) };
+  }, [cases]);
 
-  const cities = Array.from(new Set(mockCases.map((c) => c.city)));
+  const cities = Array.from(new Set(cases.map((c) => c.city).filter(Boolean)));
 
   return (
     <div className="relative overflow-hidden px-4 pb-24 pt-10 sm:px-8 lg:px-16">
       <div className="hero-blob blob-1" />
       <div className="hero-blob blob-2" />
       <div className="relative mx-auto flex max-w-6xl flex-col gap-10">
-        {/* Top bar */}
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="glass-card glow-ring neo-press flex h-12 w-12 items-center justify-center rounded-2xl">
-              <div className="h-6 w-6 rounded-full bg-linear-to-br from-emerald-400 to-amber-300 shadow-lg" />
-            </div>
-            <div>
-              <div className="text-lg font-semibold text-white">Found Pakistan</div>
-              <div className="text-sm text-emerald-100/80">Reunite with care</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/profile"
-              className="glass-card neo-press rounded-full px-4 py-2 text-sm text-emerald-100/80 hover:text-white hover:border-emerald-400/60"
-            >
-              Profile
-            </Link>
+        {/* Hero */}
+        <section className="glass-card relative overflow-hidden rounded-3xl border border-white/10 p-8 sm:p-12">
+          <div className="absolute inset-0 bg-linear-to-br from-emerald-400/10 via-amber-200/10 to-transparent" />
+          <div className="relative mb-4 flex justify-end gap-2">
             <button
               onClick={() => setLang("en")}
               className={`glass-card neo-press rounded-full px-4 py-2 text-sm ${
@@ -307,15 +312,7 @@ export default function Home() {
             >
               اردو
             </button>
-            <button className="glass-card neo-press rounded-full px-4 py-2 text-sm text-white">
-              {copy.ctaPrimary}
-            </button>
           </div>
-        </header>
-
-        {/* Hero */}
-        <section className="glass-card relative overflow-hidden rounded-3xl border border-white/10 p-8 sm:p-12">
-          <div className="absolute inset-0 bg-linear-to-br from-emerald-400/10 via-amber-200/10 to-transparent" />
           <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center">
             <div className="flex-1 space-y-4">
               <p className="inline-flex items-center gap-2 rounded-full bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-50">
@@ -326,7 +323,14 @@ export default function Home() {
               </h1>
               <p className="max-w-2xl text-lg text-emerald-50">{copy.heroSubtitle}</p>
               <div className="flex flex-wrap gap-3">
-                <Link href="/report" className="neo-press glow-ring rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black">
+                <Link
+                  href="/report"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goReport();
+                  }}
+                  className="neo-press glow-ring rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black"
+                >
                   {copy.ctaPrimary}
                 </Link>
                 <a href="#how" className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">
@@ -455,16 +459,24 @@ export default function Home() {
         {/* Cases grid */}
         <section className="grid gap-8 lg:grid-cols-[1fr_420px]">
           <div className="card-grid">
+            {loadingCases && (
+              <div className="text-sm text-emerald-100">Loading latest cases…</div>
+            )}
+            {!loadingCases && filteredCases.length === 0 && (
+              <div className="glass-card rounded-2xl border border-white/10 p-8 text-center">
+                <p className="text-emerald-100">No cases match your filters. Try adjusting them.</p>
+              </div>
+            )}
             {filteredCases.map((c) => (
               <article
-                key={c.case_id}
+                key={c.case_id || c.id}
                 className="glass-card neo-press relative overflow-hidden rounded-2xl border border-white/10"
-                onClick={() => setSelectedCaseId(c.case_id)}
+                onClick={() => setSelectedCaseId(c.case_id || c.id)}
               >
                 <div className="relative h-48 w-full overflow-hidden">
                   {c.media?.[0] && (
                     <Image
-                      src={c.media[0].file_url}
+                      src={c.media[0].file_url || c.media[0].url}
                       alt={c.name}
                       fill
                       className="object-cover"
@@ -485,7 +497,7 @@ export default function Home() {
                 <div className="space-y-3 px-4 py-4">
                   <div className="flex flex-wrap gap-2">
                     <TagPill>{c.case_type === "missing" ? copy.missing : copy.found}</TagPill>
-                    <TagPill>{c.status === "open" ? copy.open : copy.resolved}</TagPill>
+                    <TagPill>{["verified", "found"].includes((c.status || "").toLowerCase()) ? copy.resolved : copy.open}</TagPill>
                     <TagPill>{copy.priority}: {c.priority}</TagPill>
                   </div>
                   <p className="line-clamp-2 text-sm text-emerald-50/90">
@@ -493,7 +505,7 @@ export default function Home() {
                   </p>
                   <div className="flex items-center justify-between text-xs text-emerald-100/80">
                     <span>
-                      {copy.reported}: {c.created_at}
+                      {copy.reported}: {c.created_at || c.createdAt || "--"}
                     </span>
                     <span>{c.area}</span>
                   </div>
@@ -507,21 +519,24 @@ export default function Home() {
             {selectedCase ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 overflow-hidden rounded-xl border border-white/10">
+                  <button
+                    onClick={() => selectedCase.media?.[0] && setSelectedImageIndex(0)}
+                    className="h-12 w-12 overflow-hidden rounded-xl border border-white/10 cursor-pointer hover:border-emerald-400/60 transition-colors"
+                  >
                     {selectedCase.media?.[0] && (
                       <Image
-                        src={selectedCase.media[0].file_url}
+                        src={selectedCase.media[0].file_url || selectedCase.media[0].url}
                         alt={selectedCase.name}
                         width={48}
                         height={48}
                         className="h-full w-full object-cover"
                       />
                     )}
-                  </div>
+                  </button>
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">{copy.statusLabel}</p>
                     <p className="text-lg font-semibold text-white">
-                      {selectedCase.status === "open" ? copy.open : copy.resolved}
+                      {["verified", "found"].includes((selectedCase.status || "").toLowerCase()) ? copy.resolved : copy.open}
                     </p>
                   </div>
                 </div>
@@ -552,16 +567,20 @@ export default function Home() {
                 <div className="space-y-2">
                   <p className="text-sm text-emerald-100">{copy.gallery}</p>
                   <div className="flex gap-2 overflow-x-auto">
-                    {selectedCase.media?.map((m) => (
-                      <div key={m.media_id} className="h-20 w-24 overflow-hidden rounded-lg border border-white/10">
+                    {selectedCase.media?.map((m, idx) => (
+                      <button
+                        key={m.media_id || idx}
+                        onClick={() => setSelectedImageIndex(idx)}
+                        className="h-20 w-24 overflow-hidden rounded-lg border border-white/10 cursor-pointer hover:border-emerald-400/60 transition-colors"
+                      >
                         <Image
-                          src={m.thumbnail_url || m.file_url}
+                          src={m.thumbnail_url || m.file_url || m.url}
                           alt={selectedCase.name}
                           width={96}
                           height={80}
                           className="h-full w-full object-cover"
                         />
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -579,7 +598,14 @@ export default function Home() {
                     />
                   </div>
                 </div>
-                <Link href="/report" className="neo-press block w-full rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-4 py-3 text-center text-sm font-semibold text-black">
+                <Link
+                  href="/report"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    goReport();
+                  }}
+                  className="neo-press block w-full rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-4 py-3 text-center text-sm font-semibold text-black"
+                >
                   {copy.ctaPrimary}
                 </Link>
               </div>
@@ -601,12 +627,57 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Auth stubs */}
-        <section className="grid gap-6 lg:grid-cols-3">
-          <AuthCard title={copy.signIn} copy={copy} />
-          <AuthCard title={copy.signUp} copy={copy} />
-          <AuthCard title={copy.reset} copy={copy} />
-        </section>
+        {/* Image Modal */}
+        {selectedImageIndex !== null && selectedCase?.media?.[selectedImageIndex] && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+            onClick={() => setSelectedImageIndex(null)}
+          >
+            <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setSelectedImageIndex(null)}
+                className="absolute top-4 right-4 z-10 rounded-full bg-black/60 p-2 text-white hover:bg-black/80 transition-colors"
+                aria-label="Close"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="relative w-full bg-black rounded-2xl overflow-hidden">
+                <Image
+                  src={selectedCase.media[selectedImageIndex].file_url || selectedCase.media[selectedImageIndex].url}
+                  alt={`${selectedCase.name} - Photo ${selectedImageIndex + 1}`}
+                  width={1200}
+                  height={800}
+                  className="w-full h-auto object-contain max-h-[80vh]"
+                  priority
+                />
+              </div>
+              {selectedCase.media.length > 1 && (
+                <div className="mt-4 flex gap-2 justify-center">
+                  <button
+                    onClick={() => setSelectedImageIndex((idx) => Math.max(0, idx - 1))}
+                    disabled={selectedImageIndex === 0}
+                    className="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50 transition-colors"
+                  >
+                    ← Previous
+                  </button>
+                  <span className="px-4 py-2 text-emerald-100 text-sm">
+                    {selectedImageIndex + 1} / {selectedCase.media.length}
+                  </span>
+                  <button
+                    onClick={() => setSelectedImageIndex((idx) => Math.min(selectedCase.media.length - 1, idx + 1))}
+                    disabled={selectedImageIndex === selectedCase.media.length - 1}
+                    className="px-4 py-2 rounded-lg bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30 disabled:opacity-50 transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
     </div>
   );
@@ -640,33 +711,3 @@ function Select({ label, value, onChange, options }) {
   );
 }
 
-function AuthCard({ title, copy }) {
-  return (
-    <div className="glass-card neo-press rounded-2xl border border-white/10 p-5">
-      <h3 className="text-lg font-semibold text-white">{title}</h3>
-      <form className="mt-4 space-y-3">
-        {title === copy.signUp && (
-          <input
-            placeholder={copy.name}
-            className="glass-card w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white placeholder:text-emerald-100/60"
-          />
-        )}
-        <input
-          type="email"
-          placeholder={copy.email}
-          className="glass-card w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white placeholder:text-emerald-100/60"
-        />
-        {title !== copy.reset && (
-          <input
-            type="password"
-            placeholder={copy.password}
-            className="glass-card w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm text-white placeholder:text-emerald-100/60"
-          />
-        )}
-        <button className="neo-press w-full rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-4 py-3 text-sm font-semibold text-black">
-          {copy.submit}
-        </button>
-      </form>
-    </div>
-  );
-}

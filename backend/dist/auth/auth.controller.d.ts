@@ -9,7 +9,10 @@ export declare class AuthController {
             id: string;
             email: string;
             name: string;
+            role: import("../users/user.entity").UserRole;
+            isVerified: boolean;
         };
+        message: string;
     }>;
     login(loginDto: LoginDto): Promise<{
         access_token: string;
@@ -17,6 +20,8 @@ export declare class AuthController {
             id: string;
             email: string;
             name: string;
+            role: import("../users/user.entity").UserRole;
+            isVerified: boolean;
         };
     }>;
     getProfile(req: any): {

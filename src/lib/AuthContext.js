@@ -16,7 +16,7 @@ export function AuthProvider({ children }) {
     const savedToken = localStorage.getItem('auth_token');
     if (savedToken) {
       setToken(savedToken);
-      // Optionally verify token by fetching profile
+      // Verify token by fetching profile
       verifyToken(savedToken);
     } else {
       setLoading(false);
@@ -29,8 +29,14 @@ export function AuthProvider({ children }) {
       setUser(profile.user);
       setLoading(false);
     } catch (err) {
-      localStorage.removeItem('auth_token');
-      setToken(null);
+      // Only logout on auth errors; tolerate transient failures
+      const msg = (err?.message || '').toLowerCase();
+      const isAuthError = msg.includes('status: 401') || msg.includes('unauthorized') || msg.includes('forbidden') || msg.includes('status: 403');
+      if (isAuthError) {
+        localStorage.removeItem('auth_token');
+        setToken(null);
+        setUser(null);
+      }
       setLoading(false);
     }
   };
@@ -40,6 +46,7 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const data = await authApi.signup(email, password, name);
+      // Auto-login after signup
       localStorage.setItem('auth_token', data.access_token);
       setToken(data.access_token);
       setUser(data.user);

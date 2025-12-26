@@ -17,7 +17,7 @@ export default function Hero({ copy, stats }) {
             <Link href="/report" className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-6 py-3 text-sm font-semibold text-black">
               {copy.ctaPrimary}
             </Link>
-            <Link href="/cases" className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">
+            <Link href="/" className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">
               Browse cases
             </Link>
             <Link href="/map" className="glass-card neo-press rounded-full px-6 py-3 text-sm text-white">

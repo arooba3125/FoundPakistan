@@ -10,6 +10,14 @@ async function bootstrap() {
         credentials: true,
     });
     app.setGlobalPrefix('api');
+    app.use((req, res, next) => {
+        req.on('data', () => { });
+        next();
+    });
+    const json = require('body-parser').json({ limit: '50mb' });
+    const urlencoded = require('body-parser').urlencoded({ limit: '50mb', extended: true });
+    app.use(json);
+    app.use(urlencoded);
     app.useGlobalPipes(new common_1.ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,

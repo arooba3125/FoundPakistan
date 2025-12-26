@@ -22,6 +22,7 @@ export default function SignupPage() {
     }
     try {
       await signup(email, password, name);
+      // After successful signup, redirect to home
       router.push('/');
     } catch (err) {
       setError(err.message);
