@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,6 +11,20 @@ async function bootstrap() {
   });
   app.setGlobalPrefix('api');
 
-  await app.listen(process.env.APP_PORT ?? 3001);
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
+  const port = process.env.APP_PORT ?? 3001;
+  await app.listen(port);
+  console.log(`✅ Backend running on http://localhost:${port}/api`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('❌ Failed to start backend:', err);
+  process.exit(1);
+});
+

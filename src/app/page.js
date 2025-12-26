@@ -2,7 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useAuth } from "@/lib/AuthContext";
+import { useRouter } from "next/navigation";
 import { mockCases } from "../data/mockCases";
 
 const translations = {
@@ -162,6 +164,8 @@ function SectionTitle({ text, lang }) {
 }
 
 export default function Home() {
+  const { isAuthenticated, loading } = useAuth();
+  const router = useRouter();
   const [lang, setLang] = useState("en");
   const [search, setSearch] = useState("");
   const [caseType, setCaseType] = useState("any");
@@ -175,6 +179,20 @@ export default function Home() {
   const [ageMin, setAgeMin] = useState(0);
   const [ageMax, setAgeMax] = useState(80);
   const [selectedCaseId, setSelectedCaseId] = useState(mockCases[0].case_id);
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [isAuthenticated, loading, router]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const copy = translations[lang];
 
@@ -267,6 +285,12 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Link
+              href="/profile"
+              className="glass-card neo-press rounded-full px-4 py-2 text-sm text-emerald-100/80 hover:text-white hover:border-emerald-400/60"
+            >
+              Profile
+            </Link>
             <button
               onClick={() => setLang("en")}
               className={`glass-card neo-press rounded-full px-4 py-2 text-sm ${
