@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { caseApi } from "@/lib/caseApi";
+import AdminTools from "@/modules/admin/AdminTools";
 
 const translations = {
   en: {
@@ -184,7 +185,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (loading) return;
     if (!isAuthenticated) {
-      router.push("/login");
+      router.push("/auth");
       return;
     }
     if (user?.role !== "admin") {
@@ -426,6 +427,15 @@ export default function AdminDashboard() {
           </div>
         </section>
 
+        {/* Admin Tools */}
+        <section className="glass-card rounded-3xl border border-white/10 p-6 sm:p-8">
+          <div className="mb-4 flex items-center justify-between">
+            <SectionTitle text={lang === 'ur' ? 'ایڈمن ٹولز' : 'Admin Tools'} lang={lang} />
+            <span className="text-xs text-emerald-100/80">Role management</span>
+          </div>
+          <AdminTools lang={lang} />
+        </section>
+
         {/* Main grid */}
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="glass-card rounded-3xl border border-white/10 p-5">
@@ -458,6 +468,12 @@ export default function AdminDashboard() {
                     {c.badge_tags?.slice(0, 2).map((t) => (
                       <Pill key={t}>{t}</Pill>
                     ))}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-emerald-100/80">
+                    {c.age && <span>Age: {c.age}</span>}
+                    {c.gender && <span>· Gender: {c.gender}</span>}
+                    {c.last_seen_date && c.case_type === 'missing' && <span>· Last seen: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
+                    {c.found_date && c.case_type === 'found' && <span>· Found: {new Date(c.found_date).toLocaleDateString()}</span>}
                   </div>
                   <p className="line-clamp-2 text-sm text-emerald-50/90" dir={lang === "ur" ? "rtl" : "ltr"}>
                     {lang === "ur" ? c.description_ur : c.description}

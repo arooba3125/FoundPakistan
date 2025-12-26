@@ -202,7 +202,7 @@ export default function Home() {
 
   const goReport = () => {
     if (!isAuthenticated) {
-      router.push("/login");
+      router.push("/auth");
       return;
     }
     router.push("/report");
@@ -373,14 +373,14 @@ export default function Home() {
         <section className="glass-card rounded-3xl border border-white/10 p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <SectionTitle text={copy.filters} lang={lang} />
-            <div className="flex items-center gap-3">
+            <div className="grid w-full gap-3 sm:grid-cols-[1fr_auto]">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder={copy.searchPlaceholder}
-                className="glass-card w-full rounded-full border border-white/10 px-4 py-3 text-sm text-white placeholder:text-emerald-100/60 sm:w-80"
+                className="glass-card w-full rounded-full border border-white/10 px-4 py-3 text-sm text-white placeholder:text-emerald-100/60"
               />
-              <button className="neo-press rounded-full bg-white/10 px-4 py-3 text-sm text-white">
+              <button className="neo-press rounded-full bg-white/10 px-4 py-3 text-sm text-white w-full sm:w-auto">
                 {copy.viewCase}
               </button>
             </div>
@@ -417,7 +417,7 @@ export default function Home() {
             ]} />
             <div className="flex flex-col gap-2">
               <label className="text-xs text-emerald-50">{copy.date}</label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={dateFrom}
@@ -434,7 +434,7 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2">
               <label className="text-xs text-emerald-50">{copy.age}</label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="number"
                   min={0}
@@ -497,8 +497,14 @@ export default function Home() {
                 <div className="space-y-3 px-4 py-4">
                   <div className="flex flex-wrap gap-2">
                     <TagPill>{c.case_type === "missing" ? copy.missing : copy.found}</TagPill>
-                    <TagPill>{["verified", "found"].includes((c.status || "").toLowerCase()) ? copy.resolved : copy.open}</TagPill>
+                    <TagPill>{(c.status || '').toLowerCase() === 'found' ? copy.resolved : copy.open}</TagPill>
                     <TagPill>{copy.priority}: {c.priority}</TagPill>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-emerald-100">
+                    {c.age && <span>{copy.age}: {c.age}</span>}
+                    {c.gender && <span>· {copy.gender}: {c.gender === 'male' ? copy.male : c.gender === 'female' ? copy.female : c.gender}</span>}
+                    {c.last_seen_date && c.case_type === 'missing' && <span>· {copy.lastSeen}: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
+                    {c.found_date && c.case_type === 'found' && <span>· {copy.foundAt}: {new Date(c.found_date).toLocaleDateString()}</span>}
                   </div>
                   <p className="line-clamp-2 text-sm text-emerald-50/90">
                     {lang === "ur" ? c.description_ur : c.description}

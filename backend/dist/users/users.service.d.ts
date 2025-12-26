@@ -5,5 +5,9 @@ export declare class UsersService {
     constructor(usersRepository: Repository<User>);
     findByEmail(email: string): Promise<User | null>;
     findById(id: string): Promise<User | null>;
+    countAdmins(): Promise<number>;
     create(email: string, password: string, name?: string): Promise<User>;
+    promoteToAdmin(userId: string): Promise<User>;
+    demoteFromAdmin(userId: string): Promise<User>;
+    listAdmins(): Promise<User[]>;
 }

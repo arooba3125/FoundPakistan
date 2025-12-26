@@ -28,16 +28,45 @@ let UsersService = class UsersService {
     async findById(id) {
         return this.usersRepository.findOne({ where: { id } });
     }
+    async countAdmins() {
+        return this.usersRepository.count({ where: { role: user_entity_1.UserRole.ADMIN } });
+    }
     async create(email, password, name) {
-        const isAdmin = process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+        const isAdminByEnv = process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+        const adminCount = await this.countAdmins();
+        const isFirstUser = adminCount === 0;
+        const role = (isAdminByEnv || isFirstUser) ? user_entity_1.UserRole.ADMIN : user_entity_1.UserRole.USER;
         const user = this.usersRepository.create({
             email,
             password,
             name,
-            role: isAdmin ? user_entity_1.UserRole.ADMIN : user_entity_1.UserRole.USER,
+            role,
             isVerified: true,
         });
         return this.usersRepository.save(user);
+    }
+    async promoteToAdmin(userId) {
+        const user = await this.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        user.role = user_entity_1.UserRole.ADMIN;
+        return this.usersRepository.save(user);
+    }
+    async demoteFromAdmin(userId) {
+        const user = await this.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        const adminCount = await this.countAdmins();
+        if (adminCount <= 1 && user.role === user_entity_1.UserRole.ADMIN) {
+            throw new Error('Cannot demote the last admin');
+        }
+        user.role = user_entity_1.UserRole.USER;
+        return this.usersRepository.save(user);
+    }
+    async listAdmins() {
+        return this.usersRepository.find({ where: { role: user_entity_1.UserRole.ADMIN } });
     }
 };
 exports.UsersService = UsersService;

@@ -19,7 +19,7 @@ import { useRouter } from "next/navigation";
 import { caseApi } from "@/lib/caseApi";
 
 export default function ReportPage() {
-  const { isAuthenticated, loading, token } = useAuth();
+  const { isAuthenticated, loading, token, user } = useAuth();
   const router = useRouter();
   const [lang, setLang] = useState("en");
   const copy = t[lang];
@@ -64,12 +64,37 @@ export default function ReportPage() {
   const [result, setResult] = useState(null);
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.push("/login");
+      router.push("/auth");
+      return;
     }
-  }, [isAuthenticated, loading, router]);
+    // Admins cannot report cases
+    if (!loading && isAuthenticated && user?.role === "admin") {
+      router.push("/admin");
+      return;
+    }
+  }, [isAuthenticated, loading, user, router]);
 
   if (loading || !isAuthenticated) {
     return <div className="flex min-h-screen items-center justify-center text-white">Loading...</div>;
+  }
+
+  if (user?.role === "admin") {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center glass-card rounded-2xl p-8 max-w-md">
+          <svg className="w-16 h-16 text-amber-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4v2m0 4v2m0-2a9 9 0 110-18 9 9 0 0110 18z" />
+          </svg>
+          <h1 className="text-2xl font-bold text-white mb-2">Admin Account</h1>
+          <p className="text-emerald-100/70 mb-6">Admins cannot report cases. Please use the admin panel to manage cases.</p>
+          <Link href="/admin" className="inline-block w-full">
+            <button className="w-full bg-gradient-to-r from-amber-400 to-amber-500 text-black font-bold py-3 rounded-xl hover:from-amber-300 hover:to-amber-400 transition-all">
+              Go to Admin Panel
+            </button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const handleSubmit = async (payload) => {
@@ -78,7 +103,7 @@ export default function ReportPage() {
     // Verify we have a token
     if (!token) {
       setResult({ state: "error", ok: false, message: "Authentication token missing. Please sign in again." });
-      router.push("/login");
+      router.push("/auth");
       return;
     }
     
@@ -130,7 +155,7 @@ export default function ReportPage() {
       // Check if it's an auth error
       if (err.message.includes("401") || err.message.toLowerCase().includes("unauthorized")) {
         setResult({ state: "error", ok: false, message: "Authentication failed. Please sign in again." });
-        setTimeout(() => router.push("/login"), 2000);
+        setTimeout(() => router.push("/auth"), 2000);
       } else {
         setResult({ state: "error", ok: false, message: err.message || "Submission failed" });
       }

@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { useAuth } from "@/lib/AuthContext";
 
 export default function SiteFooter() {
+  const { isAuthenticated, user } = useAuth();
   const year = new Date().getFullYear();
   return (
     <footer className="mt-16">
@@ -21,9 +23,11 @@ export default function SiteFooter() {
             <p className="text-sm text-emerald-50/90 max-w-sm">
               A compassionate network for reporting, searching, and resolving missing and found cases.
             </p>
-            <Link href="/report" className="neo-press glow-ring inline-block rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-5 py-2 text-sm font-semibold text-black">
-              Report a Case
-            </Link>
+            {isAuthenticated && user && user.role !== "admin" && (
+              <Link href="/report" className="neo-press glow-ring inline-block rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-5 py-2 text-sm font-semibold text-black">
+                Report a Case
+              </Link>
+            )}
           </div>
 
           <div>

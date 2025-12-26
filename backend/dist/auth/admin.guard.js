@@ -6,21 +6,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UsersModule = void 0;
+exports.AdminGuard = void 0;
 const common_1 = require("@nestjs/common");
-const typeorm_1 = require("@nestjs/typeorm");
-const user_entity_1 = require("./user.entity");
-const users_service_1 = require("./users.service");
-const users_controller_1 = require("./users.controller");
-let UsersModule = class UsersModule {
+let AdminGuard = class AdminGuard {
+    canActivate(context) {
+        const request = context.switchToHttp().getRequest();
+        const user = request.user;
+        if (!user || user.role !== 'admin') {
+            throw new common_1.ForbiddenException('Only admins can access this resource');
+        }
+        return true;
+    }
 };
-exports.UsersModule = UsersModule;
-exports.UsersModule = UsersModule = __decorate([
-    (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([user_entity_1.User])],
-        providers: [users_service_1.UsersService],
-        controllers: [users_controller_1.UsersController],
-        exports: [users_service_1.UsersService],
-    })
-], UsersModule);
-//# sourceMappingURL=users.module.js.map
+exports.AdminGuard = AdminGuard;
+exports.AdminGuard = AdminGuard = __decorate([
+    (0, common_1.Injectable)()
+], AdminGuard);
+//# sourceMappingURL=admin.guard.js.map

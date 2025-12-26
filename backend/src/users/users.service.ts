@@ -18,19 +18,60 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { id } });
   }
 
+  async countAdmins(): Promise<number> {
+    return this.usersRepository.count({ where: { role: UserRole.ADMIN } });
+  }
+
   async create(
     email: string,
     password: string,
     name?: string,
   ): Promise<User> {
-    const isAdmin = process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+    // Check if this should be admin:
+    // 1. First check env variable (override)
+    const isAdminByEnv = process.env.ADMIN_EMAIL && email.toLowerCase() === process.env.ADMIN_EMAIL.toLowerCase();
+    
+    // 2. Bootstrap: First user ever becomes admin automatically if no admins exist
+    const adminCount = await this.countAdmins();
+    const isFirstUser = adminCount === 0;
+    
+    const role = (isAdminByEnv || isFirstUser) ? UserRole.ADMIN : UserRole.USER;
+
     const user = this.usersRepository.create({
       email,
       password,
       name,
-      role: isAdmin ? UserRole.ADMIN : UserRole.USER,
+      role,
       isVerified: true, // Auto-verified by default
     });
+    
     return this.usersRepository.save(user);
+  }
+
+  async promoteToAdmin(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    user.role = UserRole.ADMIN;
+    return this.usersRepository.save(user);
+  }
+
+  async demoteFromAdmin(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    // Prevent demoting if it's the only admin
+    const adminCount = await this.countAdmins();
+    if (adminCount <= 1 && user.role === UserRole.ADMIN) {
+      throw new Error('Cannot demote the last admin');
+    }
+    user.role = UserRole.USER;
+    return this.usersRepository.save(user);
+  }
+
+  async listAdmins(): Promise<User[]> {
+    return this.usersRepository.find({ where: { role: UserRole.ADMIN } });
   }
 }

@@ -10,7 +10,7 @@ export default function SiteHeader() {
 
   const handleReport = () => {
     if (!isAuthenticated) {
-      router.push("/login");
+      router.push("/auth");
       return;
     }
     router.push("/report");
@@ -18,7 +18,7 @@ export default function SiteHeader() {
 
   const handleLogout = () => {
     logout();
-    router.push("/login");
+    router.push("/auth");
   };
 
   return (
@@ -39,10 +39,12 @@ export default function SiteHeader() {
         <nav className="flex items-center gap-3 text-sm text-emerald-100/80">
           <Link href="/" className="hover:text-white">Cases</Link>
           <Link href="/map" className="hover:text-white">Map</Link>
-          <Link href="/report" className="hover:text-white" onClick={(e) => { e.preventDefault(); handleReport(); }}>
-            Report
-          </Link>
-          {user?.role === "admin" && (
+          {isAuthenticated && user && user.role !== "admin" && (
+            <Link href="/report" className="hover:text-white" onClick={(e) => { e.preventDefault(); handleReport(); }}>
+              Report
+            </Link>
+          )}
+          {isAuthenticated && user && user.role === "admin" && (
             <Link href="/admin" className="hover:text-white">Admin</Link>
           )}
         </nav>
@@ -51,13 +53,13 @@ export default function SiteHeader() {
           {!isAuthenticated ? (
             <>
               <Link
-                href="/login"
+                href="/auth"
                 className="glass-card neo-press rounded-full px-4 py-2 text-sm text-emerald-100/80 hover:text-white hover:border-emerald-400/60"
               >
                 Sign in
               </Link>
               <Link
-                href="/signup"
+                href="/auth/user/signup"
                 className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-4 py-2 text-sm font-semibold text-black"
               >
                 Sign up
@@ -71,12 +73,14 @@ export default function SiteHeader() {
               >
                 {user?.name || user?.email}
               </Link>
-              <button
-                onClick={handleReport}
-                className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-4 py-2 text-sm font-semibold text-black"
-              >
-                Report a Case
-              </button>
+              {isAuthenticated && user && user.role !== "admin" && (
+                <button
+                  onClick={handleReport}
+                  className="neo-press glow-ring rounded-full bg-gradient-to-r from-emerald-400 to-amber-300 px-4 py-2 text-sm font-semibold text-black"
+                >
+                  Report a Case
+                </button>
+              )}
               <button
                 onClick={handleLogout}
                 className="glass-card neo-press rounded-full px-4 py-2 text-sm text-emerald-100/80 hover:text-white hover:border-emerald-400/60"
