@@ -8,12 +8,14 @@ import { Repository } from 'typeorm';
 import { Case, CaseStatus } from './case.entity';
 import { CreateCaseDto, UpdateCaseDto } from './dto/case.dto';
 import { User, UserRole } from '../users/user.entity';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class CasesService {
   constructor(
     @InjectRepository(Case)
     private casesRepository: Repository<Case>,
+    private emailService: EmailService,
   ) {}
 
   async create(createCaseDto: CreateCaseDto, userId: string): Promise<Case> {
@@ -114,7 +116,25 @@ export class CasesService {
     caseEntity.verified_by = adminId;
     caseEntity.verified_at = new Date();
 
-    return this.casesRepository.save(caseEntity);
+    const savedCase = await this.casesRepository.save(caseEntity);
+
+    // Send email notification to reporter
+    if (caseEntity.reporter?.email) {
+      try {
+        await this.emailService.sendCaseStatusEmail(
+          caseEntity.reporter.email,
+          caseEntity.case_id,
+          'VERIFIED',
+          caseEntity.name,
+          caseEntity.case_type,
+        );
+      } catch (error) {
+        // Log error but don't fail the case update
+        console.error('Failed to send verification email:', error);
+      }
+    }
+
+    return savedCase;
   }
 
   async rejectCase(
@@ -140,7 +160,26 @@ export class CasesService {
     caseEntity.verified_at = new Date();
     caseEntity.rejection_reason = reason;
 
-    return this.casesRepository.save(caseEntity);
+    const savedCase = await this.casesRepository.save(caseEntity);
+
+    // Send email notification to reporter
+    if (caseEntity.reporter?.email) {
+      try {
+        await this.emailService.sendCaseStatusEmail(
+          caseEntity.reporter.email,
+          caseEntity.case_id,
+          'REJECTED',
+          caseEntity.name,
+          caseEntity.case_type,
+          reason,
+        );
+      } catch (error) {
+        // Log error but don't fail the case update
+        console.error('Failed to send rejection email:', error);
+      }
+    }
+
+    return savedCase;
   }
 
   async markAsFound(id: string, adminId: string): Promise<Case> {
@@ -160,7 +199,25 @@ export class CasesService {
     caseEntity.verified_by = adminId;
     caseEntity.verified_at = new Date();
 
-    return this.casesRepository.save(caseEntity);
+    const savedCase = await this.casesRepository.save(caseEntity);
+
+    // Send email notification to reporter
+    if (caseEntity.reporter?.email) {
+      try {
+        await this.emailService.sendCaseStatusEmail(
+          caseEntity.reporter.email,
+          caseEntity.case_id,
+          'FOUND',
+          caseEntity.name,
+          caseEntity.case_type,
+        );
+      } catch (error) {
+        // Log error but don't fail the case update
+        console.error('Failed to send found notification email:', error);
+      }
+    }
+
+    return savedCase;
   }
 
   async delete(id: string, user: User): Promise<void> {

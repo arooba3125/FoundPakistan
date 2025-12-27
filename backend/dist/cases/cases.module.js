@@ -12,12 +12,13 @@ const typeorm_1 = require("@nestjs/typeorm");
 const cases_service_1 = require("./cases.service");
 const cases_controller_1 = require("./cases.controller");
 const case_entity_1 = require("./case.entity");
+const email_module_1 = require("../email/email.module");
 let CasesModule = class CasesModule {
 };
 exports.CasesModule = CasesModule;
 exports.CasesModule = CasesModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([case_entity_1.Case])],
+        imports: [typeorm_1.TypeOrmModule.forFeature([case_entity_1.Case]), email_module_1.EmailModule],
         controllers: [cases_controller_1.CasesController],
         providers: [cases_service_1.CasesService],
         exports: [cases_service_1.CasesService],

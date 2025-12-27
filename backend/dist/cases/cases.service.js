@@ -18,10 +18,13 @@ const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const case_entity_1 = require("./case.entity");
 const user_entity_1 = require("../users/user.entity");
+const email_service_1 = require("../email/email.service");
 let CasesService = class CasesService {
     casesRepository;
-    constructor(casesRepository) {
+    emailService;
+    constructor(casesRepository, emailService) {
         this.casesRepository = casesRepository;
+        this.emailService = emailService;
     }
     async create(createCaseDto, userId) {
         const caseEntity = this.casesRepository.create({
@@ -87,7 +90,16 @@ let CasesService = class CasesService {
         caseEntity.status = case_entity_1.CaseStatus.VERIFIED;
         caseEntity.verified_by = adminId;
         caseEntity.verified_at = new Date();
-        return this.casesRepository.save(caseEntity);
+        const savedCase = await this.casesRepository.save(caseEntity);
+        if (caseEntity.reporter?.email) {
+            try {
+                await this.emailService.sendCaseStatusEmail(caseEntity.reporter.email, caseEntity.case_id, 'VERIFIED', caseEntity.name, caseEntity.case_type);
+            }
+            catch (error) {
+                console.error('Failed to send verification email:', error);
+            }
+        }
+        return savedCase;
     }
     async rejectCase(id, adminId, reason) {
         const caseEntity = await this.findOne(id);
@@ -100,7 +112,16 @@ let CasesService = class CasesService {
         caseEntity.verified_by = adminId;
         caseEntity.verified_at = new Date();
         caseEntity.rejection_reason = reason;
-        return this.casesRepository.save(caseEntity);
+        const savedCase = await this.casesRepository.save(caseEntity);
+        if (caseEntity.reporter?.email) {
+            try {
+                await this.emailService.sendCaseStatusEmail(caseEntity.reporter.email, caseEntity.case_id, 'REJECTED', caseEntity.name, caseEntity.case_type, reason);
+            }
+            catch (error) {
+                console.error('Failed to send rejection email:', error);
+            }
+        }
+        return savedCase;
     }
     async markAsFound(id, adminId) {
         const caseEntity = await this.findOne(id);
@@ -111,7 +132,16 @@ let CasesService = class CasesService {
         caseEntity.status = case_entity_1.CaseStatus.FOUND;
         caseEntity.verified_by = adminId;
         caseEntity.verified_at = new Date();
-        return this.casesRepository.save(caseEntity);
+        const savedCase = await this.casesRepository.save(caseEntity);
+        if (caseEntity.reporter?.email) {
+            try {
+                await this.emailService.sendCaseStatusEmail(caseEntity.reporter.email, caseEntity.case_id, 'FOUND', caseEntity.name, caseEntity.case_type);
+            }
+            catch (error) {
+                console.error('Failed to send found notification email:', error);
+            }
+        }
+        return savedCase;
     }
     async delete(id, user) {
         const caseEntity = await this.findOne(id);
@@ -126,6 +156,7 @@ exports.CasesService = CasesService;
 exports.CasesService = CasesService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, typeorm_1.InjectRepository)(case_entity_1.Case)),
-    __metadata("design:paramtypes", [typeorm_2.Repository])
+    __metadata("design:paramtypes", [typeorm_2.Repository,
+        email_service_1.EmailService])
 ], CasesService);
 //# sourceMappingURL=cases.service.js.map

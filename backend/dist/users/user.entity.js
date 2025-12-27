@@ -25,6 +25,10 @@ let User = class User {
     isVerified;
     verificationToken;
     verificationExpires;
+    otpHash;
+    otpExpiresAt;
+    otpAttempts;
+    otpSentAt;
     createdAt;
     updatedAt;
 };
@@ -65,6 +69,22 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true, type: 'timestamp' }),
     __metadata("design:type", Object)
 ], User.prototype, "verificationExpires", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, type: 'varchar' }),
+    __metadata("design:type", Object)
+], User.prototype, "otpHash", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, type: 'timestamp' }),
+    __metadata("design:type", Object)
+], User.prototype, "otpExpiresAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "otpAttempts", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, type: 'timestamp' }),
+    __metadata("design:type", Object)
+], User.prototype, "otpSentAt", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

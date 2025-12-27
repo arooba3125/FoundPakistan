@@ -6,5 +6,6 @@ export declare class EmailService {
     constructor(configService: ConfigService);
     private initializeTransporter;
     sendVerificationEmail(email: string, token: string): Promise<void>;
-    sendCaseStatusEmail(email: string, caseId: string, status: string): Promise<void>;
+    sendOtpEmail(email: string, otp: string): Promise<void>;
+    sendCaseStatusEmail(email: string, caseId: string, status: string, caseName?: string, caseType?: string, rejectionReason?: string): Promise<void>;
 }

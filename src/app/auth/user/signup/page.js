@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import OtpModal from '@/modules/shared/ui/OtpModal';
 
 export default function UserSignupPage() {
   const [name, setName] = useState('');
@@ -13,7 +14,9 @@ export default function UserSignupPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const { signup, loading, isAuthenticated } = useAuth();
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const { signup, verifyOtpAndLogin, resendOtp, loading, isAuthenticated } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -63,10 +66,40 @@ export default function UserSignupPage() {
     }
 
     try {
-      await signup(email, password, name);
-      router.push('/');
+      const result = await signup(email, password, name);
+      // Signup now requires OTP verification
+      if (result.requiresOtp) {
+        setShowOtpModal(true);
+      } else {
+        // Fallback (shouldn't happen with new flow)
+        router.push('/');
+      }
     } catch (err) {
       setError(err.message || 'Signup failed. Please try again.');
+    }
+  };
+
+  const handleOtpVerify = async (otp) => {
+    setOtpLoading(true);
+    setError('');
+    try {
+      await verifyOtpAndLogin(email, otp);
+      setShowOtpModal(false);
+      router.push('/');
+    } catch (err) {
+      setError(err.message || 'Invalid OTP. Please try again.');
+      throw err; // Re-throw so modal can handle it
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleOtpResend = async () => {
+    try {
+      await resendOtp(email);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP');
     }
   };
 
@@ -242,6 +275,19 @@ export default function UserSignupPage() {
           </p>
         </div>
       </div>
+
+      {/* OTP Modal */}
+      <OtpModal
+        isOpen={showOtpModal}
+        onClose={() => {
+          setShowOtpModal(false);
+          setError('');
+        }}
+        onVerify={handleOtpVerify}
+        onResend={handleOtpResend}
+        email={email}
+        isLoading={otpLoading}
+      />
     </div>
   );
 }

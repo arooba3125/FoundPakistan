@@ -42,7 +42,7 @@ export class UsersService {
       password,
       name,
       role,
-      isVerified: true, // Auto-verified by default
+      isVerified: false, // Requires OTP verification
     });
     
     return this.usersRepository.save(user);
@@ -73,5 +73,42 @@ export class UsersService {
 
   async listAdmins(): Promise<User[]> {
     return this.usersRepository.find({ where: { role: UserRole.ADMIN } });
+  }
+
+  async updateOtpData(
+    userId: string,
+    otpHash: string,
+    otpExpiresAt: Date,
+  ): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    user.otpHash = otpHash;
+    user.otpExpiresAt = otpExpiresAt;
+    user.otpSentAt = new Date();
+    user.otpAttempts = 0;
+    return this.usersRepository.save(user);
+  }
+
+  async incrementOtpAttempts(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    user.otpAttempts = (user.otpAttempts || 0) + 1;
+    return this.usersRepository.save(user);
+  }
+
+  async clearOtpData(userId: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    user.otpHash = null;
+    user.otpExpiresAt = null;
+    user.otpAttempts = 0;
+    user.otpSentAt = null;
+    return this.usersRepository.save(user);
   }
 }

@@ -41,7 +41,7 @@ let UsersService = class UsersService {
             password,
             name,
             role,
-            isVerified: true,
+            isVerified: false,
         });
         return this.usersRepository.save(user);
     }
@@ -67,6 +67,36 @@ let UsersService = class UsersService {
     }
     async listAdmins() {
         return this.usersRepository.find({ where: { role: user_entity_1.UserRole.ADMIN } });
+    }
+    async updateOtpData(userId, otpHash, otpExpiresAt) {
+        const user = await this.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        user.otpHash = otpHash;
+        user.otpExpiresAt = otpExpiresAt;
+        user.otpSentAt = new Date();
+        user.otpAttempts = 0;
+        return this.usersRepository.save(user);
+    }
+    async incrementOtpAttempts(userId) {
+        const user = await this.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        user.otpAttempts = (user.otpAttempts || 0) + 1;
+        return this.usersRepository.save(user);
+    }
+    async clearOtpData(userId) {
+        const user = await this.findById(userId);
+        if (!user) {
+            throw new Error('User not found');
+        }
+        user.otpHash = null;
+        user.otpExpiresAt = null;
+        user.otpAttempts = 0;
+        user.otpSentAt = null;
+        return this.usersRepository.save(user);
     }
 };
 exports.UsersService = UsersService;

@@ -41,6 +41,18 @@ export class User {
   @Column({ nullable: true, type: 'timestamp' })
   verificationExpires: Date | null;
 
+  @Column({ nullable: true, type: 'varchar' })
+  otpHash: string | null;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  otpExpiresAt: Date | null;
+
+  @Column({ default: 0 })
+  otpAttempts: number;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  otpSentAt: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

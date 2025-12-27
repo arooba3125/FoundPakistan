@@ -41,50 +41,98 @@ var __importStar = (this && this.__importStar) || (function () {
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
+const typeorm_1 = require("typeorm");
+const typeorm_2 = require("@nestjs/typeorm");
+const user_entity_1 = require("../users/user.entity");
 const jwt_1 = require("@nestjs/jwt");
 const bcrypt = __importStar(require("bcrypt"));
 const users_service_1 = require("../users/users.service");
+const email_service_1 = require("../email/email.service");
+const otp_util_1 = require("./utils/otp.util");
+const email_util_1 = require("./utils/email.util");
 let AuthService = class AuthService {
     usersService;
     jwtService;
-    constructor(usersService, jwtService) {
+    emailService;
+    usersRepository;
+    constructor(usersService, jwtService, emailService, usersRepository) {
         this.usersService = usersService;
         this.jwtService = jwtService;
+        this.emailService = emailService;
+        this.usersRepository = usersRepository;
     }
     async signup(signupDto) {
         const { email, password, name } = signupDto;
+        if (!(0, email_util_1.isValidEmailFormat)(email)) {
+            throw new common_1.BadRequestException('Invalid email address format. Please provide a valid email address.');
+        }
         const existingUser = await this.usersService.findByEmail(email);
         if (existingUser) {
             throw new common_1.ConflictException('Email already exists');
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         const user = await this.usersService.create(email, hashedPassword, name);
-        const token = this.generateToken(user.id, user.email, user.role);
+        await this.sendOtpToUser(user.id, email);
         return {
-            access_token: token,
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                isVerified: user.isVerified,
-            },
-            message: 'Registration successful! You can now login.',
+            message: 'Account created successfully! Please check your email for the verification code.',
+            email: email,
+            requiresOtp: true,
         };
     }
     async login(loginDto) {
-        const { email, password } = loginDto;
+        const { email, password, expectedRole } = loginDto;
+        const user = await this.usersService.findByEmail(email);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid email or password');
+        }
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            throw new common_1.UnauthorizedException('Invalid email or password');
+        }
+        if (expectedRole) {
+            if (expectedRole === 'admin' && user.role !== 'admin') {
+                throw new common_1.UnauthorizedException('This account is not an admin account. Please use the user login portal instead.');
+            }
+            if (expectedRole === 'user' && user.role === 'admin') {
+                throw new common_1.UnauthorizedException('Admin accounts cannot login here. Please use the admin portal instead.');
+            }
+        }
+        await this.sendOtpToUser(user.id, email);
+        return {
+            message: 'Please check your email for the verification code to complete login.',
+            email: email,
+            requiresOtp: true,
+        };
+    }
+    async verifyOtp(verifyOtpDto) {
+        const { email, otp } = verifyOtpDto;
         const user = await this.usersService.findByEmail(email);
         if (!user) {
             throw new common_1.UnauthorizedException('Invalid credentials');
         }
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            throw new common_1.UnauthorizedException('Invalid credentials');
+        if (!user.otpHash || !user.otpExpiresAt) {
+            throw new common_1.BadRequestException('No OTP found. Please request a new one.');
         }
+        if ((0, otp_util_1.isOtpExpired)(user.otpExpiresAt)) {
+            throw new common_1.BadRequestException('OTP has expired. Please request a new one.');
+        }
+        if (user.otpAttempts >= 3) {
+            throw new common_1.HttpException('Too many failed attempts. Please request a new OTP.', common_1.HttpStatus.TOO_MANY_REQUESTS);
+        }
+        const isOtpValid = await (0, otp_util_1.verifyOtp)(otp, user.otpHash);
+        if (!isOtpValid) {
+            await this.usersService.incrementOtpAttempts(user.id);
+            throw new common_1.UnauthorizedException('Invalid OTP. Please try again.');
+        }
+        await this.usersService.clearOtpData(user.id);
+        user.isVerified = true;
+        await this.usersRepository.save(user);
         const token = this.generateToken(user.id, user.email, user.role);
         return {
             access_token: token,
@@ -96,6 +144,35 @@ let AuthService = class AuthService {
                 isVerified: user.isVerified,
             },
         };
+    }
+    async resendOtp(resendOtpDto) {
+        const { email } = resendOtpDto;
+        if (!(0, email_util_1.isValidEmailFormat)(email)) {
+            throw new common_1.BadRequestException('Invalid email address format. Please provide a valid email address.');
+        }
+        const user = await this.usersService.findByEmail(email);
+        if (!user) {
+            throw new common_1.UnauthorizedException('Invalid email address');
+        }
+        await this.sendOtpToUser(user.id, email);
+        return {
+            message: 'A new verification code has been sent to your email.',
+            email: email,
+        };
+    }
+    async sendOtpToUser(userId, email) {
+        if (!(0, email_util_1.isValidEmailFormat)(email)) {
+            throw new common_1.BadRequestException('Invalid email address format. Please provide a valid email address.');
+        }
+        const isDomainValid = await (0, email_util_1.isValidEmailDomain)(email);
+        if (!isDomainValid) {
+            throw new common_1.BadRequestException('Invalid email address. The email domain does not exist or cannot receive emails. Please check your email address and try again.');
+        }
+        const otp = (0, otp_util_1.generateOtp)();
+        const otpHash = await (0, otp_util_1.hashOtp)(otp);
+        const otpExpiresAt = (0, otp_util_1.createOtpExpiration)();
+        await this.usersService.updateOtpData(userId, otpHash, otpExpiresAt);
+        await this.emailService.sendOtpEmail(email, otp);
     }
     async validateUser(userId) {
         const user = await this.usersService.findById(userId);
@@ -112,7 +189,10 @@ let AuthService = class AuthService {
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
+    __param(3, (0, typeorm_2.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [users_service_1.UsersService,
-        jwt_1.JwtService])
+        jwt_1.JwtService,
+        email_service_1.EmailService,
+        typeorm_1.Repository])
 ], AuthService);
 //# sourceMappingURL=auth.service.js.map

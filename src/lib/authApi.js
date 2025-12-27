@@ -14,11 +14,11 @@ export const authApi = {
     return response.json();
   },
 
-  login: async (email, password) => {
+  login: async (email, password, expectedRole) => {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, expectedRole }),
     });
     if (!response.ok) {
       const error = await response.json();
@@ -42,6 +42,32 @@ export const authApi = {
         message = data.message || message;
       } catch {}
       throw new Error(`${message} (Status: ${response.status})`);
+    }
+    return response.json();
+  },
+
+  verifyOtp: async (email, otp) => {
+    const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'OTP verification failed');
+    }
+    return response.json();
+  },
+
+  resendOtp: async (email) => {
+    const response = await fetch(`${API_BASE_URL}/auth/resend-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to resend OTP');
     }
     return response.json();
   },

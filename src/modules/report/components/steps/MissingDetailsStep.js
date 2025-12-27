@@ -12,6 +12,7 @@ export default function MissingDetailsStep({ form, setForm, langPack }) {
           label={langPack.gender}
           value={form.gender || ""}
           onChange={(v) => setForm({ gender: v })}
+          required={true}
           options={[
             { value: "male", label: langPack.male },
             { value: "female", label: langPack.female },

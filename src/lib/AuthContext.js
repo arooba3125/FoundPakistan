@@ -46,7 +46,39 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const data = await authApi.signup(email, password, name);
-      // Auto-login after signup
+      // Signup now requires OTP, so don't auto-login
+      // Return data for OTP verification step
+      return data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email, password, expectedRole) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await authApi.login(email, password, expectedRole);
+      // Login now requires OTP, so don't auto-login
+      // Return data for OTP verification step
+      return data;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtpAndLogin = async (email, otp) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await authApi.verifyOtp(email, otp);
+      // Now we have the token and user data
       localStorage.setItem('auth_token', data.access_token);
       setToken(data.access_token);
       setUser(data.user);
@@ -59,20 +91,14 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = async (email, password) => {
-    setLoading(true);
+  const resendOtp = async (email) => {
     setError(null);
     try {
-      const data = await authApi.login(email, password);
-      localStorage.setItem('auth_token', data.access_token);
-      setToken(data.access_token);
-      setUser(data.user);
+      const data = await authApi.resendOtp(email);
       return data;
     } catch (err) {
       setError(err.message);
       throw err;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -92,6 +118,8 @@ export function AuthProvider({ children }) {
         error,
         signup,
         login,
+        verifyOtpAndLogin,
+        resendOtp,
         logout,
         isAuthenticated: !!token,
       }}

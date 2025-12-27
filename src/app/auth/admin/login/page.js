@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import OtpModal from '@/modules/shared/ui/OtpModal';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +12,9 @@ export default function AdminLoginPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isAdminVerified, setIsAdminVerified] = useState(false);
-  const { login, logout, loading, isAuthenticated, user } = useAuth();
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const { login, verifyOtpAndLogin, resendOtp, logout, loading, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -28,15 +31,31 @@ export default function AdminLoginPage() {
     setIsAdminVerified(false);
 
     try {
-      const result = await login(email, password);
+      const result = await login(email, password, 'admin'); // Pass 'admin' as expected role
+      // Login now requires OTP verification
+      if (result.requiresOtp) {
+        setShowOtpModal(true);
+      } else {
+        // Fallback (shouldn't happen with new flow)
+        router.push('/admin');
+      }
+    } catch (err) {
+      setError(err.message || 'Login failed. Please try again.');
+      setIsAdminVerified(false);
+    }
+  };
+
+  const handleOtpVerify = async (otp) => {
+    setOtpLoading(true);
+    setError('');
+    try {
+      const result = await verifyOtpAndLogin(email, otp);
       
       // Verify the user is an admin
       if (result.user?.role !== 'admin') {
         setError('Access denied. Only admin accounts can login here. Contact your administrator if you believe this is an error.');
-        setIsAdminVerified(false);
-        // Clear token so user is not logged in via admin portal
         logout();
-        // Don't redirect immediately - let user see the error for 3 seconds
+        setShowOtpModal(false);
         setTimeout(() => {
           router.push('/auth/user/login');
         }, 3000);
@@ -44,10 +63,22 @@ export default function AdminLoginPage() {
       }
 
       setIsAdminVerified(true);
+      setShowOtpModal(false);
       router.push('/admin');
     } catch (err) {
-      setError(err.message || 'Login failed. Please try again.');
-      setIsAdminVerified(false);
+      setError(err.message || 'Invalid OTP. Please try again.');
+      throw err; // Re-throw so modal can handle it
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleOtpResend = async () => {
+    try {
+      await resendOtp(email);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP');
     }
   };
 
@@ -210,6 +241,19 @@ export default function AdminLoginPage() {
           </p>
         </div>
       </div>
+
+      {/* OTP Modal */}
+      <OtpModal
+        isOpen={showOtpModal}
+        onClose={() => {
+          setShowOtpModal(false);
+          setError('');
+        }}
+        onVerify={handleOtpVerify}
+        onResend={handleOtpResend}
+        email={email}
+        isLoading={otpLoading}
+      />
     </div>
   );
 }

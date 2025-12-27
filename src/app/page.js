@@ -50,6 +50,14 @@ const translations = {
     location: "Location",
     map: "Location Map",
     gallery: "Media",
+    caseId: "Case ID",
+    contactInfo: "Contact Information",
+    contactName: "Contact Name",
+    contactEmail: "Contact Email",
+    contactPhone: "Contact Phone",
+    age: "Age",
+    gender: "Gender",
+    cityArea: "City/Area",
     ctaPrimary: "Report a Case",
     ctaSecondary: "See how it works",
     authTitle: "Access your space",
@@ -108,6 +116,14 @@ const translations = {
     location: "مقام",
     map: "نقشہ",
     gallery: "میڈیا",
+    caseId: "کیس آئی ڈی",
+    contactInfo: "رابطے کی معلومات",
+    contactName: "رابطے کا نام",
+    contactEmail: "رابطے کی ای میل",
+    contactPhone: "رابطے کا فون",
+    age: "عمر",
+    gender: "جنس",
+    cityArea: "شہر/علاقہ",
     ctaPrimary: "نیا کیس درج کریں",
     ctaSecondary: "طریقہ کار دیکھیں",
     authTitle: "اپنا اکاؤنٹ کھولیں",
@@ -179,6 +195,7 @@ export default function Home() {
   const [ageMin, setAgeMin] = useState(0);
   const [ageMax, setAgeMax] = useState(80);
   const [cases, setCases] = useState([]);
+  const [allCases, setAllCases] = useState([]); // Store all cases for stats
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [loadingCases, setLoadingCases] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
@@ -187,12 +204,21 @@ export default function Home() {
     const load = async () => {
       setLoadingCases(true);
       try {
-        const data = await caseApi.getCases({ status: 'verified' });
-        setCases(data || []);
-        if (data && data[0]) setSelectedCaseId(data[0].case_id || data[0].id);
+        // Load all cases for accurate statistics
+        const allData = await caseApi.getCases({});
+        setAllCases(allData || []);
+        
+        // Filter to show only verified cases in the list
+        const verifiedData = (allData || []).filter(c => (c.status || "").toLowerCase() === "verified");
+        setCases(verifiedData);
+        
+        if (verifiedData && verifiedData[0]) {
+          setSelectedCaseId(verifiedData[0].case_id || verifiedData[0].id);
+        }
       } catch (err) {
         console.error("Failed to load cases:", err);
         setCases([]);
+        setAllCases([]);
       } finally {
         setLoadingCases(false);
       }
@@ -277,15 +303,31 @@ export default function Home() {
   }, [filteredCases, selectedCaseId]);
 
   const stats = useMemo(() => {
-    const active = cases.filter((c) => {
+    // Calculate stats from ALL cases, not just verified ones
+    const active = allCases.filter((c) => {
       const s = (c.status || "").toLowerCase();
       return !["found", "rejected"].includes(s);
     }).length;
-    const resolved = cases.filter((c) => (c.status || "").toLowerCase() === "found").length;
-    return { active, resolved, total: cases.length, newToday: Math.min(3, cases.length || 0) };
-  }, [cases]);
+    const resolved = allCases.filter((c) => (c.status || "").toLowerCase() === "found").length;
+    
+    // Count cases created today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newToday = allCases.filter((c) => {
+      const created = new Date(c.createdAt || c.created_at || Date.now());
+      created.setHours(0, 0, 0, 0);
+      return created.getTime() === today.getTime();
+    }).length;
+    
+    return { 
+      active, 
+      resolved, 
+      total: allCases.length, 
+      newToday 
+    };
+  }, [allCases]);
 
-  const cities = Array.from(new Set(cases.map((c) => c.city).filter(Boolean)));
+  const cities = Array.from(new Set(allCases.map((c) => c.city).filter(Boolean)));
 
   return (
     <div className="relative overflow-hidden px-4 pb-24 pt-10 sm:px-8 lg:px-16">
@@ -393,8 +435,7 @@ export default function Home() {
             ]} />
             <Select label={copy.status} value={status} onChange={setStatus} options={[
               { value: "any", label: copy.any },
-              { value: "open", label: copy.open },
-              { value: "resolved", label: copy.resolved },
+              { value: "verified", label: copy.open },
             ]} />
             <Select label={copy.city} value={city} onChange={setCity} options={[{ value: "any", label: copy.any }, ...cities.map((c) => ({ value: c, label: c }))]} />
             <Select label={copy.gender} value={gender} onChange={setGender} options={[
@@ -458,66 +499,84 @@ export default function Home() {
 
         {/* Cases grid */}
         <section className="grid gap-8 lg:grid-cols-[1fr_420px]">
-          <div className="card-grid">
-            {loadingCases && (
-              <div className="text-sm text-emerald-100">Loading latest cases…</div>
-            )}
-            {!loadingCases && filteredCases.length === 0 && (
-              <div className="glass-card rounded-2xl border border-white/10 p-8 text-center">
-                <p className="text-emerald-100">No cases match your filters. Try adjusting them.</p>
-              </div>
-            )}
-            {filteredCases.map((c) => (
+          <div className="glass-card rounded-3xl border border-white/10 p-5">
+            <div className="mb-4 flex items-center justify-between">
+              <SectionTitle text={copy.cases} lang={lang} />
+              <span className="text-xs text-emerald-100/80">{filteredCases.length} {filteredCases.length === 1 ? 'case' : 'cases'}</span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {loadingCases && (
+                <div className="col-span-2 text-sm text-emerald-100 p-4 text-center">Loading latest cases…</div>
+              )}
+              {!loadingCases && filteredCases.length === 0 && (
+                <div className="col-span-2 glass-card rounded-2xl border border-white/10 p-8 text-center">
+                  <p className="text-emerald-100">No cases match your filters. Try adjusting them.</p>
+                </div>
+              )}
+              {filteredCases.map((c) => (
               <article
                 key={c.case_id || c.id}
-                className="glass-card neo-press relative overflow-hidden rounded-2xl border border-white/10"
+                className={`glass-card neo-press flex flex-col gap-3 rounded-2xl border border-white/10 p-4 ${
+                  (c.case_id || c.id) === selectedCaseId ? "ring-2 ring-emerald-400/60" : ""
+                }`}
                 onClick={() => setSelectedCaseId(c.case_id || c.id)}
               >
-                <div className="relative h-48 w-full overflow-hidden">
-                  {c.media?.[0] && (
-                    <Image
-                      src={c.media[0].file_url || c.media[0].url}
-                      alt={c.name}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width: 768px) 100vw, 33vw"
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent" />
-                  <div className="absolute left-3 top-3 flex gap-2">
-                    <CaseBadge tag={c.priority === "high" ? "urgent" : c.badge_tags?.[0] || "urgent"} lang={lang} />
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    {c.media?.[0] && (
+                      <div className="mb-2 h-32 w-full overflow-hidden rounded-xl border border-white/10">
+                        <Image
+                          src={c.media[0].file_url || c.media[0].url}
+                          alt={c.name}
+                          width={300}
+                          height={128}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-100 truncate">{c.case_id || c.id}</p>
+                    <h3 className={`text-lg font-semibold text-white mt-1 ${lang === "ur" ? "urdu-text" : ""}`} dir={lang === "ur" ? "rtl" : "ltr"}>
+                      {lang === "ur" ? c.name_ur : c.name}
+                    </h3>
+                    <p className="text-xs text-emerald-100/80 mt-1">{c.city}{c.area ? ` · ${c.area}` : ''}</p>
                   </div>
-                  <div className="absolute bottom-3 left-3 flex flex-col gap-1">
-                    <h3 className="text-lg font-semibold text-white">{lang === "ur" ? c.name_ur : c.name}</h3>
-                    <p className="text-sm text-emerald-100">
-                      {c.case_type === "missing" ? copy.missing : copy.found} · {c.city}
-                    </p>
+                  <div className="flex-shrink-0">
+                    <span className={`rounded-full px-3 py-1 text-xs ${
+                      (c.status || "").toLowerCase() === "found" 
+                        ? "bg-blue-400/20 text-blue-100"
+                        : (c.status || "").toLowerCase() === "rejected"
+                        ? "bg-red-400/20 text-red-100"
+                        : "bg-emerald-400/20 text-emerald-100"
+                    }`}>
+                      {(c.status || "").toLowerCase() === 'found' ? copy.resolved : copy.open}
+                    </span>
                   </div>
                 </div>
-                <div className="space-y-3 px-4 py-4">
-                  <div className="flex flex-wrap gap-2">
-                    <TagPill>{c.case_type === "missing" ? copy.missing : copy.found}</TagPill>
-                    <TagPill>{(c.status || '').toLowerCase() === 'found' ? copy.resolved : copy.open}</TagPill>
-                    <TagPill>{copy.priority}: {c.priority}</TagPill>
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs text-emerald-100">
-                    {c.age && <span>{copy.age}: {c.age}</span>}
-                    {c.gender && <span>· {copy.gender}: {c.gender === 'male' ? copy.male : c.gender === 'female' ? copy.female : c.gender}</span>}
-                    {c.last_seen_date && c.case_type === 'missing' && <span>· {copy.lastSeen}: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
-                    {c.found_date && c.case_type === 'found' && <span>· {copy.foundAt}: {new Date(c.found_date).toLocaleDateString()}</span>}
-                  </div>
-                  <p className="line-clamp-2 text-sm text-emerald-50/90">
-                    {lang === "ur" ? c.description_ur : c.description}
-                  </p>
-                  <div className="flex items-center justify-between text-xs text-emerald-100/80">
-                    <span>
-                      {copy.reported}: {c.created_at || c.createdAt || "--"}
-                    </span>
-                    <span>{c.area}</span>
-                  </div>
+                <div className="flex flex-wrap gap-2">
+                  <TagPill>{c.case_type === "missing" ? copy.missing : copy.found}</TagPill>
+                  <TagPill>{copy.priority}: {c.priority}</TagPill>
+                  {c.badge_tags?.slice(0, 2).map((t) => (
+                    <TagPill key={t}>{t}</TagPill>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-2 text-xs text-emerald-100/80">
+                  {c.age && <span>Age: {c.age}</span>}
+                  {c.gender && <span>· Gender: {c.gender === 'male' ? copy.male : c.gender === 'female' ? copy.female : c.gender}</span>}
+                  {c.last_seen_date && c.case_type === 'missing' && <span>· {copy.lastSeen}: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
+                  {c.found_date && c.case_type === 'found' && <span>· {copy.foundAt}: {new Date(c.found_date).toLocaleDateString()}</span>}
+                </div>
+                <p className="line-clamp-2 text-sm text-emerald-50/90" dir={lang === "ur" ? "rtl" : "ltr"}>
+                  {lang === "ur" ? c.description_ur : c.description}
+                </p>
+                <div className="flex items-center justify-between text-xs text-emerald-100/80 pt-1 border-t border-white/10">
+                  <span>{copy.reported}: {c.createdAt || c.created_at ? new Date(c.createdAt || c.created_at).toLocaleDateString() : 'N/A'}</span>
+                  {c.contact_phone && (
+                    <span className="text-emerald-300">📞 Contact Available</span>
+                  )}
                 </div>
               </article>
-            ))}
+              ))}
+            </div>
           </div>
 
           {/* Case detail side panel */}
@@ -539,18 +598,21 @@ export default function Home() {
                       />
                     )}
                   </button>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">{copy.statusLabel}</p>
-                    <p className="text-lg font-semibold text-white">
-                      {["verified", "found"].includes((selectedCase.status || "").toLowerCase()) ? copy.resolved : copy.open}
-                    </p>
-                  </div>
+                   <div>
+                     <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">{copy.statusLabel}</p>
+                     <p className="text-lg font-semibold text-white">
+                       {(selectedCase.status || "").toLowerCase() === 'found' ? copy.resolved : copy.open}
+                     </p>
+                   </div>
                 </div>
                 <div>
                   <h3 className="text-2xl font-semibold text-white">
                     {lang === "ur" ? selectedCase.name_ur : selectedCase.name}
                   </h3>
-                  <p className="urdu-text text-sm text-emerald-50/90">
+                  <p className="text-xs text-emerald-100/70 mt-1 font-mono">
+                    {copy.caseId}: {selectedCase.case_id || selectedCase.id}
+                  </p>
+                  <p className="urdu-text text-sm text-emerald-50/90 mt-2">
                     {lang === "ur" ? selectedCase.description_ur : selectedCase.description}
                   </p>
                 </div>
@@ -559,17 +621,80 @@ export default function Home() {
                     <CaseBadge key={t} tag={t} lang={lang} />
                   ))}
                 </div>
-                <div className="space-y-2 text-sm text-emerald-100">
-                  <p>
-                    <strong className="text-white">{copy.priorityLabel}:</strong> {selectedCase.priority}
-                  </p>
-                  <p>
-                    <strong className="text-white">{copy.location}:</strong> {selectedCase.last_seen_location || selectedCase.found_location}
-                  </p>
-                  <p>
-                    <strong className="text-white">{selectedCase.case_type === "missing" ? copy.lastSeen : copy.foundAt}:</strong> {selectedCase.last_seen_date || selectedCase.found_date}
-                  </p>
+                
+                {/* Important Case Details */}
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 space-y-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-100">{copy.priorityLabel}</span>
+                    <span className="text-white font-semibold capitalize">{selectedCase.priority}</span>
+                  </div>
+                  {(selectedCase.age || selectedCase.gender) && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-100">{copy.age}/{copy.gender}</span>
+                      <span className="text-white">
+                        {selectedCase.age && <>{selectedCase.age} {selectedCase.gender ? `· ${selectedCase.gender === 'male' ? copy.male : selectedCase.gender === 'female' ? copy.female : selectedCase.gender}` : ''}</>}
+                        {!selectedCase.age && selectedCase.gender && (selectedCase.gender === 'male' ? copy.male : selectedCase.gender === 'female' ? copy.female : selectedCase.gender)}
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-100">{copy.cityArea}</span>
+                    <span className="text-white">{selectedCase.city}{selectedCase.area ? `, ${selectedCase.area}` : ''}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-emerald-100">{copy.reported}</span>
+                    <span className="text-white text-xs">
+                      {selectedCase.createdAt || selectedCase.created_at 
+                        ? new Date(selectedCase.createdAt || selectedCase.created_at).toLocaleDateString()
+                        : 'N/A'}
+                    </span>
+                  </div>
+                  {selectedCase.last_seen_location || selectedCase.found_location ? (
+                    <div className="flex items-start justify-between">
+                      <span className="text-emerald-100">{copy.location}</span>
+                      <span className="text-white text-right max-w-[60%]">{selectedCase.last_seen_location || selectedCase.found_location}</span>
+                    </div>
+                  ) : null}
+                  {(selectedCase.last_seen_date || selectedCase.found_date) && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-emerald-100">{selectedCase.case_type === "missing" ? copy.lastSeen : copy.foundAt}</span>
+                      <span className="text-white text-xs">
+                        {new Date(selectedCase.last_seen_date || selectedCase.found_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
+
+                {/* Contact Information */}
+                {(selectedCase.reporter?.name || selectedCase.reporter?.email || selectedCase.contact_email || selectedCase.contact_phone) && (
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-900/10 p-4 space-y-2">
+                    <p className="text-sm font-semibold text-emerald-100">{copy.contactInfo}</p>
+                    <div className="space-y-2 text-sm text-emerald-50">
+                      {selectedCase.reporter?.name && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-100">{copy.contactName}</span>
+                          <span className="text-white">{selectedCase.reporter.name}</span>
+                        </div>
+                      )}
+                      {(selectedCase.reporter?.email || selectedCase.contact_email) && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-100">{copy.contactEmail}</span>
+                          <a href={`mailto:${selectedCase.reporter?.email || selectedCase.contact_email}`} className="text-emerald-400 hover:text-emerald-300 underline text-right max-w-[60%] truncate">
+                            {selectedCase.reporter?.email || selectedCase.contact_email}
+                          </a>
+                        </div>
+                      )}
+                      {selectedCase.contact_phone && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-emerald-100">{copy.contactPhone}</span>
+                          <a href={`tel:${selectedCase.contact_phone}`} className="text-emerald-400 hover:text-emerald-300 underline">
+                            {selectedCase.contact_phone}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <p className="text-sm text-emerald-100">{copy.gallery}</p>
                   <div className="flex gap-2 overflow-x-auto">

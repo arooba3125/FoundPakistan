@@ -28,6 +28,12 @@ let AuthController = class AuthController {
     async login(loginDto) {
         return this.authService.login(loginDto);
     }
+    async verifyOtp(verifyOtpDto) {
+        return this.authService.verifyOtp(verifyOtpDto);
+    }
+    async resendOtp(resendOtpDto) {
+        return this.authService.resendOtp(resendOtpDto);
+    }
     getProfile(req) {
         return {
             message: 'This is a protected route',
@@ -50,6 +56,20 @@ __decorate([
     __metadata("design:paramtypes", [auth_dto_1.LoginDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('verify-otp'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.VerifyOtpDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyOtp", null);
+__decorate([
+    (0, common_1.Post)('resend-otp'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.ResendOtpDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "resendOtp", null);
 __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Get)('profile'),

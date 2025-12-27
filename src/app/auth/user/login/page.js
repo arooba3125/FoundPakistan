@@ -4,13 +4,16 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import OtpModal from '@/modules/shared/ui/OtpModal';
 
 export default function UserLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, logout, loading, isAuthenticated, user } = useAuth();
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const { login, verifyOtpAndLogin, resendOtp, logout, loading, isAuthenticated, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -25,17 +28,46 @@ export default function UserLoginPage() {
     e.preventDefault();
     setError('');
     try {
-      const result = await login(email, password);
-      if (result.user?.role === 'admin') {
-        setError('Admin accounts cannot login here. Use the admin portal instead.');
-        // Clear admin token to avoid being logged-in on user page
-        logout();
-        // Do not redirect automatically; keep user on this page
-        return;
+      const result = await login(email, password, 'user'); // Pass 'user' as expected role
+      // Login now requires OTP verification
+      if (result.requiresOtp) {
+        setShowOtpModal(true);
+      } else {
+        // Fallback (shouldn't happen with new flow)
+        router.push('/');
       }
-      router.push('/');
     } catch (err) {
       setError(err.message || 'Login failed. Please try again.');
+    }
+  };
+
+  const handleOtpVerify = async (otp) => {
+    setOtpLoading(true);
+    setError('');
+    try {
+      const result = await verifyOtpAndLogin(email, otp);
+      if (result.user?.role === 'admin') {
+        setError('Admin accounts cannot login here. Use the admin portal instead.');
+        logout();
+        setShowOtpModal(false);
+        return;
+      }
+      setShowOtpModal(false);
+      router.push('/');
+    } catch (err) {
+      setError(err.message || 'Invalid OTP. Please try again.');
+      throw err; // Re-throw so modal can handle it
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleOtpResend = async () => {
+    try {
+      await resendOtp(email);
+      setError('');
+    } catch (err) {
+      setError(err.message || 'Failed to resend OTP');
     }
   };
 
@@ -167,6 +199,19 @@ export default function UserLoginPage() {
           </p>
         </div>
       </div>
+
+      {/* OTP Modal */}
+      <OtpModal
+        isOpen={showOtpModal}
+        onClose={() => {
+          setShowOtpModal(false);
+          setError('');
+        }}
+        onVerify={handleOtpVerify}
+        onResend={handleOtpResend}
+        email={email}
+        isLoading={otpLoading}
+      />
     </div>
   );
 }

@@ -10,4 +10,7 @@ export declare class UsersService {
     promoteToAdmin(userId: string): Promise<User>;
     demoteFromAdmin(userId: string): Promise<User>;
     listAdmins(): Promise<User[]>;
+    updateOtpData(userId: string, otpHash: string, otpExpiresAt: Date): Promise<User>;
+    incrementOtpAttempts(userId: string): Promise<User>;
+    clearOtpData(userId: string): Promise<User>;
 }

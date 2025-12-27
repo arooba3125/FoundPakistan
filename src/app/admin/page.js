@@ -30,7 +30,6 @@ const translations = {
     contacts: "Contacts",
     notes: "Notes",
     responders: "Responders",
-    sla: "SLA risk",
     open: "Open",
     resolved: "Resolved",
     missing: "Missing",
@@ -46,6 +45,9 @@ const translations = {
     metricsResolved: "Resolved",
     metricsUrgent: "Urgent",
     metricsAwaiting: "Awaiting verification",
+    metricsRejected: "Rejected",
+    metricsTotal: "Total Cases",
+    reporter: "Reporter",
     selectPrompt: "Select a case to view details",
     backToMap: "Open map",
     langLabel: "Language",
@@ -71,7 +73,6 @@ const translations = {
     contacts: "رابطے",
     notes: "نوٹس",
     responders: "جواب دہندگان",
-    sla: "ایس ایل اے رسک",
     open: "کھلا",
     resolved: "حل شدہ",
     missing: "گمشدہ",
@@ -87,6 +88,9 @@ const translations = {
     metricsResolved: "حل شدہ",
     metricsUrgent: "ہنگامی",
     metricsAwaiting: "تصدیق کے منتظر",
+    metricsRejected: "مسترد",
+    metricsTotal: "کل کیسز",
+    reporter: "رپورٹر",
     selectPrompt: "تفصیل دیکھنے کے لیے کیس منتخب کریں",
     backToMap: "نقشہ کھولیں",
     langLabel: "زبان",
@@ -219,7 +223,9 @@ export default function AdminDashboard() {
     const resolved = cases.filter((c) => (c.status || "").toLowerCase() === "found").length;
     const urgent = cases.filter((c) => (c.priority || "").toLowerCase() === "high").length;
     const awaiting = cases.filter((c) => (c.status || "").toLowerCase() === "pending").length;
-    return { open, resolved, urgent, awaiting };
+    const rejected = cases.filter((c) => (c.status || "").toLowerCase() === "rejected").length;
+    const total = cases.length;
+    return { open, resolved, urgent, awaiting, rejected, total };
   }, [cases]);
 
   const cities = useMemo(() => Array.from(new Set(cases.map((c) => c.city).filter(Boolean))), [cases]);
@@ -360,9 +366,11 @@ export default function AdminDashboard() {
         </header>
 
         {/* Stats */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          <StatCard label={copy.metricsTotal} value={stats.total} />
           <StatCard label={copy.metricsOpen} value={stats.open} />
           <StatCard label={copy.metricsResolved} value={stats.resolved} />
+          <StatCard label={copy.metricsRejected} value={stats.rejected} />
           <StatCard label={copy.metricsUrgent} value={stats.urgent} />
           <StatCard label={copy.metricsAwaiting} value={stats.awaiting} />
         </div>
@@ -479,7 +487,6 @@ export default function AdminDashboard() {
                     {lang === "ur" ? c.description_ur : c.description}
                   </p>
                   <div className="flex items-center justify-between text-xs text-emerald-100/80">
-                    <span>{copy.sla}: {c.priority === "high" ? "4h" : c.priority === "medium" ? "12h" : "24h"}</span>
                     <span>{copy.assignee}: {copy.unassigned}</span>
                   </div>
                 </article>
@@ -554,26 +561,103 @@ export default function AdminDashboard() {
                     <span>{copy.status}</span>
                     <StatusBadge status={selectedCase.status} priority={selectedCase.priority} lang={lang} />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span>{copy.sla}</span>
-                    <span className="text-white">{selectedCase.priority === "high" ? "4h target" : selectedCase.priority === "medium" ? "12h target" : "24h target"}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>{copy.contacts}</span>
-                    <span className="text-white">Family, Police</span>
-                  </div>
+                  {selectedCase.reporter && (
+                    <div className="flex items-center justify-between">
+                      <span>{copy.reporter}</span>
+                      <span className="text-white">{selectedCase.reporter.name || selectedCase.reporter.email || "N/A"}</span>
+                    </div>
+                  )}
+                  {selectedCase.contact_email && (
+                    <div className="flex items-center justify-between">
+                      <span>Contact Email</span>
+                      <a href={`mailto:${selectedCase.contact_email}`} className="text-emerald-400 hover:text-emerald-300 underline">
+                        {selectedCase.contact_email}
+                      </a>
+                    </div>
+                  )}
+                  {selectedCase.contact_phone && (
+                    <div className="flex items-center justify-between">
+                      <span>Contact Phone</span>
+                      <a href={`tel:${selectedCase.contact_phone}`} className="text-emerald-400 hover:text-emerald-300 underline">
+                        {selectedCase.contact_phone}
+                      </a>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <p className="text-sm font-semibold text-white">{copy.timeline}</p>
                   <div className="space-y-2 text-sm text-emerald-100">
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-white">Verification requested</p>
-                      <p className="text-xs text-emerald-100/70">2h ago · Ops</p>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                      <p className="text-white">Photo uploaded</p>
-                      <p className="text-xs text-emerald-100/70">6h ago · Field</p>
-                    </div>
+                    {(() => {
+                      const formatTimeAgo = (date) => {
+                        if (!date) return '';
+                        const now = new Date();
+                        const eventDate = new Date(date);
+                        const diffMs = now - eventDate;
+                        const diffMins = Math.floor(diffMs / (1000 * 60));
+                        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                        const diffDays = Math.floor(diffHours / 24);
+                        
+                        if (diffDays > 0) {
+                          return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                        } else if (diffHours > 0) {
+                          return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+                        } else if (diffMins > 0) {
+                          return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+                        } else {
+                          return 'Just now';
+                        }
+                      };
+
+                      const timelineEvents = [];
+                      const status = (selectedCase.status || "").toLowerCase();
+                      
+                      // Case created
+                      if (selectedCase.createdAt || selectedCase.created_at) {
+                        timelineEvents.push({
+                          title: 'Case reported',
+                          time: formatTimeAgo(selectedCase.createdAt || selectedCase.created_at),
+                          date: new Date(selectedCase.createdAt || selectedCase.created_at),
+                        });
+                      }
+                      
+                      // Case verified/rejected/found
+                      if (selectedCase.verified_at) {
+                        let title = 'Case verified';
+                        if (status === 'rejected') {
+                          title = 'Case rejected';
+                        } else if (status === 'found') {
+                          title = 'Case marked as found';
+                        }
+                        
+                        timelineEvents.push({
+                          title: title,
+                          time: formatTimeAgo(selectedCase.verified_at),
+                          date: new Date(selectedCase.verified_at),
+                          reason: selectedCase.rejection_reason,
+                        });
+                      }
+                      
+                      // Sort by date (newest first)
+                      timelineEvents.sort((a, b) => b.date - a.date);
+                      
+                      if (timelineEvents.length === 0) {
+                        return (
+                          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <p className="text-white">No activity recorded</p>
+                          </div>
+                        );
+                      }
+                      
+                      return timelineEvents.map((event, idx) => (
+                        <div key={idx} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <p className="text-white">{event.title}</p>
+                          {event.reason && (
+                            <p className="text-xs text-red-300 mt-1">Reason: {event.reason}</p>
+                          )}
+                          <p className="text-xs text-emerald-100/70">{event.time}</p>
+                        </div>
+                      ));
+                    })()}
                   </div>
                 </div>
                 {selectedCase.media && selectedCase.media.length > 0 && (
