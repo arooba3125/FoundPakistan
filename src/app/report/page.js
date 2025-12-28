@@ -13,7 +13,6 @@ import ContactStep from "../../modules/report/components/steps/ContactStep";
 import ReviewSubmitStep from "../../modules/report/components/steps/ReviewSubmitStep";
 import Button from "../../modules/shared/ui/Button";
 import { t } from "../../lib/i18n";
-import { mockSubmitCase } from "../../data/mockSubmit";
 import { useAuth } from "@/lib/AuthContext";
 import { useRouter } from "next/navigation";
 import { caseApi } from "@/lib/caseApi";
@@ -39,7 +38,6 @@ export default function ReportPage() {
     last_seen_date: "",
     // found details
     found_name: "",
-    age_range: "",
     found_location: "",
     found_date: "",
     additional_info: "",
@@ -131,8 +129,7 @@ export default function ReportPage() {
         name: payload.name || payload.found_name || "Unknown",
         description: payload.additional_info || payload.description || 
           `${payload.physical_features ? 'Physical features: ' + payload.physical_features + '. ' : ''}` +
-          `${payload.clothing ? 'Clothing: ' + payload.clothing + '. ' : ''}` +
-          `${payload.age_range ? 'Age range: ' + payload.age_range + '.' : ''}`,
+          `${payload.clothing ? 'Clothing: ' + payload.clothing + '. ' : ''}`,
         city: payload.city || "",
         area: payload.area || "",
         priority: payload.priority || "medium",

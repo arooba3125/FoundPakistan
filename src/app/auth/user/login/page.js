@@ -24,6 +24,17 @@ export default function UserLoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate email
+    if (!email.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
     try {
       const result = await login(email, password, 'user'); // Pass 'user' as expected role
       // Login now returns token directly (no OTP required)

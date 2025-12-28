@@ -126,6 +126,12 @@ export class Case {
   @Column({ nullable: true })
   rejection_reason: string;
 
+  @Column({ nullable: true })
+  matched_with_case_id: string;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  cancelled_at: Date | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

@@ -284,4 +284,229 @@ export class EmailService {
       // Don't throw; login should succeed even if notification email fails
     }
   }
+
+  async sendContactRequestEmail(
+    caseReporterEmail: string,
+    caseId: string,
+    caseName: string,
+    requesterEmail: string,
+    requesterMessage?: string,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.log(`[TEST MODE] Contact request for case ${caseId} from ${requesterEmail}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+        to: caseReporterEmail,
+        subject: `Contact Request for Case ${caseId} - FoundPakistan`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
+            </div>
+            
+            <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
+              <h2 style="color: #111827; margin-top: 0;">New Contact Request</h2>
+              <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+                Someone wants to contact you about your case.
+              </p>
+            </div>
+
+            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <p style="color: #111827; font-size: 16px; margin: 0 0 12px 0;"><strong>Case Details:</strong></p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Case ID:</strong> ${caseId}</p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Case Name:</strong> ${caseName}</p>
+            </div>
+
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <p style="color: #111827; font-size: 16px; margin: 0 0 12px 0;"><strong>Requester Information:</strong></p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Email:</strong> ${requesterEmail}</p>
+              ${requesterMessage ? `<p style="color: #374151; margin: 8px 0;"><strong>Message:</strong> ${requesterMessage}</p>` : ''}
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">Please log in to your dashboard to approve or reject this contact request.</p>
+              <p style="text-align: center; margin-top: 20px;">
+                <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile" style="background-color: #059669; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+                  View Dashboard
+                </a>
+              </p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
+          </div>
+        `,
+      });
+      this.logger.log(`Contact request email sent to ${caseReporterEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send contact request email to ${caseReporterEmail}:`, error.message);
+    }
+  }
+
+  async sendContactApprovalEmail(
+    requesterEmail: string,
+    caseId: string,
+    caseName: string,
+    contactName: string,
+    contactPhone: string,
+    contactEmail: string,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.log(`[TEST MODE] Contact approval for case ${caseId} to ${requesterEmail}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+        to: requesterEmail,
+        subject: `Contact Request Approved - Case ${caseId}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
+            </div>
+            
+            <div style="background-color: #d1fae5; border-left: 4px solid #059669; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <h2 style="color: #111827; margin-top: 0;">Contact Request Approved! ✅</h2>
+              <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+                Your contact request for case <strong>${caseName}</strong> (ID: ${caseId}) has been approved.
+              </p>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin: 24px 0;">
+              <h3 style="color: #111827; margin-top: 0;">Contact Information:</h3>
+              <p style="color: #374151; margin: 8px 0;"><strong>Name:</strong> ${contactName}</p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Email:</strong> <a href="mailto:${contactEmail}" style="color: #059669;">${contactEmail}</a></p>
+              ${contactPhone ? `<p style="color: #374151; margin: 8px 0;"><strong>Phone:</strong> <a href="tel:${contactPhone}" style="color: #059669;">${contactPhone}</a></p>` : ''}
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">You can now contact them directly. Please be respectful and provide helpful information.</p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
+          </div>
+        `,
+      });
+      this.logger.log(`Contact approval email sent to ${requesterEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send contact approval email to ${requesterEmail}:`, error.message);
+    }
+  }
+
+  async sendContactRejectionEmail(
+    requesterEmail: string,
+    caseId: string,
+    caseName: string,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.log(`[TEST MODE] Contact rejection for case ${caseId} to ${requesterEmail}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+        to: requesterEmail,
+        subject: `Contact Request - Case ${caseId}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
+            </div>
+            
+            <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
+              <h2 style="color: #111827; margin-top: 0;">Contact Request Update</h2>
+              <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+                Your contact request for case <strong>${caseName}</strong> (ID: ${caseId}) could not be approved at this time.
+              </p>
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">Thank you for your interest. The case reporter has chosen not to share contact information at this time.</p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
+          </div>
+        `,
+      });
+      this.logger.log(`Contact rejection email sent to ${requesterEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send contact rejection email to ${requesterEmail}:`, error.message);
+    }
+  }
+
+  async sendMatchConfirmedEmail(
+    reporterEmail: string,
+    caseId: string,
+    caseName: string,
+    matchedCaseId: string,
+    matchedCaseName: string,
+    matchedCaseReporterName: string,
+    matchedCaseContactPhone: string,
+    matchedCaseContactEmail: string,
+  ): Promise<void> {
+    if (!this.transporter) {
+      this.logger.log(`[TEST MODE] Match confirmed email for case ${caseId} to ${reporterEmail}`);
+      return;
+    }
+
+    try {
+      await this.transporter.sendMail({
+        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+        to: reporterEmail,
+        subject: `Match Confirmed - ${caseName} Has Been Found!`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
+            </div>
+            
+            <div style="background-color: #d1fae5; border-left: 4px solid #059669; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <h2 style="color: #111827; margin-top: 0;">🎉 Match Confirmed!</h2>
+              <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+                Great news! A match has been confirmed for your case.
+              </p>
+            </div>
+
+            <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin: 24px 0;">
+              <h3 style="color: #111827; margin-top: 0;">Your Case:</h3>
+              <p style="color: #374151; margin: 8px 0;"><strong>Case ID:</strong> ${caseId}</p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Name:</strong> ${caseName}</p>
+            </div>
+
+            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <h3 style="color: #111827; margin-top: 0;">Matched Case:</h3>
+              <p style="color: #374151; margin: 8px 0;"><strong>Case ID:</strong> ${matchedCaseId}</p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Name:</strong> ${matchedCaseName}</p>
+            </div>
+
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <h3 style="color: #111827; margin-top: 0;">Contact Information:</h3>
+              <p style="color: #374151; margin: 8px 0;"><strong>Name:</strong> ${matchedCaseReporterName}</p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Email:</strong> <a href="mailto:${matchedCaseContactEmail}" style="color: #059669;">${matchedCaseContactEmail}</a></p>
+              ${matchedCaseContactPhone ? `<p style="color: #374151; margin: 8px 0;"><strong>Phone:</strong> <a href="tel:${matchedCaseContactPhone}" style="color: #059669;">${matchedCaseContactPhone}</a></p>` : ''}
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">You can now contact them directly. Please verify the match and proceed accordingly.</p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
+          </div>
+        `,
+      });
+      this.logger.log(`Match confirmed email sent to ${reporterEmail}`);
+    } catch (error) {
+      this.logger.error(`Failed to send match confirmed email to ${reporterEmail}:`, error.message);
+    }
+  }
 }

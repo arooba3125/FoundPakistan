@@ -26,19 +26,23 @@ export default function CaseDetailPanel({ c, copy }) {
           <p>
             <strong className="text-white">{copy.priorityLabel}:</strong> {c.priority}
           </p>
-          <p>
-            <strong className="text-white">{copy.location}:</strong> {c.last_seen_location || c.found_location}
-          </p>
-          <p>
-            <strong className="text-white">{c.case_type === "missing" ? copy.lastSeen : copy.foundAt}:</strong> {c.last_seen_date || c.found_date}
-          </p>
+          {c.last_seen_location && (
+            <p>
+              <strong className="text-white">{copy.location}:</strong> {c.last_seen_location}
+            </p>
+          )}
+          {c.last_seen_date && (
+            <p>
+              <strong className="text-white">{c.case_type === "missing" ? copy.lastSeen : copy.foundAt}:</strong> {new Date(c.last_seen_date).toLocaleDateString()}
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <p className="text-sm text-emerald-100">{copy.map}</p>
           <div className="overflow-hidden rounded-xl border border-white/10">
             <iframe
               title="Case location"
-              src={`https://www.google.com/maps?q=${encodeURIComponent(c.last_seen_location || c.found_location || "Pakistan")}&output=embed`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(c.last_seen_location || "Pakistan")}&output=embed`}
               className="h-48 w-full"
               loading="lazy"
               allowFullScreen

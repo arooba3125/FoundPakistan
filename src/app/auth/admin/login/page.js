@@ -17,16 +17,28 @@ export default function AdminLoginPage() {
   const router = useRouter();
 
   useEffect(() => {
+    // Only redirect if not loading and authenticated
+    if (loading) return;
     if (isAuthenticated && user?.role === 'admin') {
       router.push('/admin');
     } else if (isAuthenticated && user?.role !== 'admin') {
       router.push('/');
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, loading]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    // Validate email
+    if (!email.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address');
+      return;
+    }
 
     try {
       const result = await login(email, password, 'admin'); // Pass 'admin' as expected role

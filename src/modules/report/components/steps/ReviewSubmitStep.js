@@ -5,7 +5,6 @@ export default function ReviewSubmitStep({ form, langPack }) {
     name: "Name",
     found_name: "Found Person Name",
     age: "Age",
-    age_range: "Age Range",
     gender: "Gender",
     physical_features: "Physical Features",
     clothing: "Clothing Description",

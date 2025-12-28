@@ -48,6 +48,8 @@ export declare class Case {
     verified_by: string;
     verified_at: Date;
     rejection_reason: string;
+    matched_with_case_id: string;
+    cancelled_at: Date | null;
     createdAt: Date;
     updatedAt: Date;
 }

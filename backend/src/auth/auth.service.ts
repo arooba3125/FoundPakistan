@@ -99,13 +99,22 @@ export class AuthService {
 
     // If admin, require OTP for login (additional security layer)
     if (user.role === 'admin') {
-      // Generate and send OTP
-      await this.sendOtpToUser(user.id, email);
-      return {
-        message: 'Please check your email for the verification code to complete login.',
-        email: email,
-        requiresOtp: true,
-      };
+      try {
+        // Generate and send OTP
+        await this.sendOtpToUser(user.id, email);
+        return {
+          message: 'Please check your email for the verification code to complete login.',
+          email: email,
+          requiresOtp: true,
+        };
+      } catch (error) {
+        // Log the error for debugging
+        console.error('Failed to send OTP to admin:', error);
+        // Re-throw with a user-friendly message
+        throw new BadRequestException(
+          error.message || 'Failed to send verification code. Please try again or contact support.'
+        );
+      }
     }
 
     // Regular users: Generate JWT token immediately (no OTP required)
@@ -227,9 +236,23 @@ export class AuthService {
     }
 
     // Validate email domain (check if domain can receive emails)
-    const isDomainValid = await isValidEmailDomain(email);
-    if (!isDomainValid) {
-      throw new BadRequestException('Invalid email address. The email domain does not exist or cannot receive emails. Please check your email address and try again.');
+    // Use a timeout to prevent DNS lookup from hanging
+    try {
+      const domainValidationPromise = isValidEmailDomain(email);
+      const timeoutPromise = new Promise<boolean>((_, reject) => 
+        setTimeout(() => reject(new Error('Email domain validation timeout')), 5000)
+      );
+      
+      const isDomainValid = await Promise.race([domainValidationPromise, timeoutPromise]);
+      
+      if (!isDomainValid) {
+        console.warn(`Email domain validation failed for ${email}, but proceeding anyway`);
+        // Don't throw error - let SMTP handle delivery validation
+      }
+    } catch (error) {
+      // If domain validation fails or times out, log but continue
+      // Let the SMTP server handle the actual delivery validation
+      console.warn(`Email domain validation error for ${email}:`, error.message);
     }
 
     // Generate OTP
@@ -241,7 +264,13 @@ export class AuthService {
     await this.usersService.updateOtpData(userId, otpHash, otpExpiresAt);
 
     // Send OTP email
-    await this.emailService.sendOtpEmail(email, otp);
+    try {
+      await this.emailService.sendOtpEmail(email, otp);
+      console.log(`OTP sent successfully to ${email}`);
+    } catch (error) {
+      console.error(`Failed to send OTP email to ${email}:`, error);
+      throw new BadRequestException(`Failed to send verification code: ${error.message || 'Email service error'}`);
+    }
   }
 
   async validateUser(userId: string) {

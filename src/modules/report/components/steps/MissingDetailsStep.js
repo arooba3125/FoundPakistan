@@ -26,7 +26,19 @@ export default function MissingDetailsStep({ form, setForm, langPack }) {
         <Input placeholder="City" value={form.city || ""} onChange={(e) => setForm({ city: e.target.value })} />
         <Input placeholder="Area" value={form.area || ""} onChange={(e) => setForm({ area: e.target.value })} />
         <Input placeholder={langPack.lastSeenLocation} value={form.last_seen_location || ""} onChange={(e) => setForm({ last_seen_location: e.target.value })} />
-        <Input type="date" placeholder={langPack.lastSeenDate} value={form.last_seen_date || ""} onChange={(e) => setForm({ last_seen_date: e.target.value })} />
+        <Input 
+          type="date" 
+          placeholder={langPack.lastSeenDate} 
+          value={form.last_seen_date || ""} 
+          max={(() => {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+          })()}
+          onChange={(e) => setForm({ last_seen_date: e.target.value })} 
+        />
       </div>
       <TextArea placeholder={langPack.additionalInfo} value={form.additional_info || ""} onChange={(e) => setForm({ additional_info: e.target.value })} />
     </div>

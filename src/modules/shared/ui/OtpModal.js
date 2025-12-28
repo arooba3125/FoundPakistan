@@ -53,14 +53,19 @@ export default function OtpModal({ isOpen, onClose, onVerify, onResend, email, i
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const otpString = otp.join("");
     if (otpString.length !== 6) {
       setError("Please enter the complete 6-digit code");
       return;
     }
-    onVerify(otpString);
+    setError("");
+    try {
+      await onVerify(otpString);
+    } catch (err) {
+      setError(err.message || "Invalid OTP. Please try again.");
+    }
   };
 
   const handleResend = () => {

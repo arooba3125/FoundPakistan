@@ -2,10 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useAuth } from "@/lib/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { caseApi } from "@/lib/caseApi";
+import ContactRequestModal from "@/modules/shared/ui/ContactRequestModal";
 
 const translations = {
   en: {
@@ -26,6 +27,9 @@ const translations = {
     found: "Found",
     open: "Open",
     resolved: "Resolved",
+    rejected: "Rejected",
+    canceled: "Canceled",
+    pending: "Pending",
     male: "Male",
     female: "Female",
     any: "Any",
@@ -92,6 +96,9 @@ const translations = {
     found: "ملنے والا",
     open: "کھلا",
     resolved: "حل شدہ",
+    rejected: "مسترد",
+    canceled: "منسوخ",
+    pending: "زیر التواء",
     male: "مرد",
     female: "خاتون",
     any: "کوئی بھی",
@@ -179,9 +186,10 @@ function SectionTitle({ text, lang }) {
   );
 }
 
-export default function Home() {
+function HomeContent() {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [lang, setLang] = useState("en");
   const [search, setSearch] = useState("");
   const [caseType, setCaseType] = useState("any");
@@ -197,8 +205,12 @@ export default function Home() {
   const [cases, setCases] = useState([]);
   const [allCases, setAllCases] = useState([]); // Store all cases for stats
   const [selectedCaseId, setSelectedCaseId] = useState(null);
+  const [selectedCaseData, setSelectedCaseData] = useState(null); // Store case data fetched individually
   const [loadingCases, setLoadingCases] = useState(true);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [showContactRequestModal, setShowContactRequestModal] = useState(false);
+  const [contactRequestLoading, setContactRequestLoading] = useState(false);
+  const [contactRequestSuccess, setContactRequestSuccess] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -208,12 +220,48 @@ export default function Home() {
         const allData = await caseApi.getCases({});
         setAllCases(allData || []);
         
-        // Filter to show only verified cases in the list
-        const verifiedData = (allData || []).filter(c => (c.status || "").toLowerCase() === "verified");
+        // Filter to show only verified cases that are not cancelled
+        const verifiedData = (allData || []).filter(c => 
+          (c.status || "").toLowerCase() === "verified" && !c.cancelled_at
+        );
         setCases(verifiedData);
         
-        if (verifiedData && verifiedData[0]) {
-          setSelectedCaseId(verifiedData[0].case_id || verifiedData[0].id);
+        // Check if caseId is in URL query params
+        const caseIdFromUrl = searchParams.get('caseId');
+        if (caseIdFromUrl) {
+          // Set the selectedCaseId from URL
+          setSelectedCaseId(caseIdFromUrl);
+          // Check if the case exists in allData (the loaded cases) and is not cancelled
+          const caseInAll = (allData || []).find(c => 
+            (c.case_id || c.id) === caseIdFromUrl && !c.cancelled_at
+          );
+          if (!caseInAll) {
+            // Case not in the list or is cancelled, fetch it individually to check status
+            // Clear any previous selectedCaseData first
+            setSelectedCaseData(null);
+            try {
+              const singleCase = await caseApi.getCase(caseIdFromUrl);
+              // Only set if not cancelled
+              if (!singleCase.cancelled_at) {
+                setSelectedCaseData(singleCase);
+              } else {
+                // Case is cancelled, clear selection
+                setSelectedCaseData(null);
+              }
+            } catch (err) {
+              console.error('Failed to load individual case:', err);
+              setSelectedCaseData(null);
+            }
+          } else {
+            // Case found in loaded cases, clear individually fetched data
+            setSelectedCaseData(null);
+          }
+        } else {
+          // No caseId in URL, clear individually fetched data and select first case
+          setSelectedCaseData(null);
+          if (verifiedData && verifiedData[0]) {
+            setSelectedCaseId(verifiedData[0].case_id || verifiedData[0].id);
+          }
         }
       } catch (err) {
         console.error("Failed to load cases:", err);
@@ -224,7 +272,7 @@ export default function Home() {
       }
     };
     load();
-  }, []);
+  }, [searchParams]);
 
   const goReport = () => {
     if (!isAuthenticated) {
@@ -238,6 +286,9 @@ export default function Home() {
 
   const filteredCases = useMemo(() => {
     return cases.filter((c) => {
+      // Exclude cancelled cases from filtered results
+      if (c.cancelled_at) return false;
+      
       const textMatch = (search || "").toLowerCase();
       const haystack = [
         c.name,
@@ -264,7 +315,7 @@ export default function Home() {
       const fromOk = dateFrom ? created >= new Date(dateFrom) : true;
       const toOk = dateTo ? created <= new Date(dateTo) : true;
 
-      const ageValue = c.age || (c.age_range ? parseInt(c.age_range) : 0);
+      const ageValue = c.age || 0;
       const matchesAge = ageValue >= ageMin && ageValue <= ageMax;
 
       return (
@@ -296,24 +347,55 @@ export default function Home() {
   ]);
 
   const selectedCase = useMemo(() => {
-    if (!selectedCaseId && filteredCases[0]) {
-      setSelectedCaseId(filteredCases[0].case_id || filteredCases[0].id);
+    // If we have individually fetched case data, use it (for cases not in the main list)
+    // But only if it matches the currently selected case ID and is not cancelled
+    if (selectedCaseData && (selectedCaseData.case_id === selectedCaseId || selectedCaseData.id === selectedCaseId)) {
+      // Don't show cancelled cases even if accessed via URL
+      if (selectedCaseData.cancelled_at) {
+        return null;
+      }
+      return selectedCaseData;
     }
-    return filteredCases.find((c) => c.case_id === selectedCaseId || c.id === selectedCaseId) || filteredCases[0] || null;
-  }, [filteredCases, selectedCaseId]);
+    
+    // First, try to find the case in filteredCases
+    let foundCase = filteredCases.find((c) => c.case_id === selectedCaseId || c.id === selectedCaseId);
+    
+    // If not found in filteredCases but we have a selectedCaseId, check allCases
+    // This allows viewing cases that might not be verified or filtered out
+    // But exclude cancelled cases
+    if (!foundCase && selectedCaseId && allCases.length > 0) {
+      foundCase = allCases.find((c) => 
+        (c.case_id === selectedCaseId || c.id === selectedCaseId) && !c.cancelled_at
+      );
+    }
+    
+    // If still no case selected and we have filtered cases, select the first one
+    if (!foundCase && !selectedCaseId && filteredCases[0]) {
+      setSelectedCaseId(filteredCases[0].case_id || filteredCases[0].id);
+      return filteredCases[0];
+    }
+    
+    // Return the found case, or the first filtered case as fallback, or null
+    return foundCase || filteredCases[0] || null;
+  }, [filteredCases, selectedCaseId, allCases, selectedCaseData]);
 
   const stats = useMemo(() => {
-    // Calculate stats from ALL cases, not just verified ones
-    const active = allCases.filter((c) => {
+    // Filter out cancelled cases from all stats
+    const activeCases = allCases.filter((c) => !c.cancelled_at);
+    
+    // Calculate active cases (excluding found, rejected, and cancelled)
+    const active = activeCases.filter((c) => {
       const s = (c.status || "").toLowerCase();
       return !["found", "rejected"].includes(s);
     }).length;
-    const resolved = allCases.filter((c) => (c.status || "").toLowerCase() === "found").length;
     
-    // Count cases created today
+    // Count resolved cases (found status, excluding cancelled)
+    const resolved = activeCases.filter((c) => (c.status || "").toLowerCase() === "found").length;
+    
+    // Count cases created today (excluding cancelled)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const newToday = allCases.filter((c) => {
+    const newToday = activeCases.filter((c) => {
       const created = new Date(c.createdAt || c.created_at || Date.now());
       created.setHours(0, 0, 0, 0);
       return created.getTime() === today.getTime();
@@ -322,7 +404,7 @@ export default function Home() {
     return { 
       active, 
       resolved, 
-      total: allCases.length, 
+      total: activeCases.length, 
       newToday 
     };
   }, [allCases]);
@@ -542,13 +624,25 @@ export default function Home() {
                   </div>
                   <div className="flex-shrink-0">
                     <span className={`rounded-full px-3 py-1 text-xs ${
-                      (c.status || "").toLowerCase() === "found" 
+                      c.cancelled_at
+                        ? "bg-gray-400/20 text-gray-100"
+                        : (c.status || "").toLowerCase() === "found" 
                         ? "bg-blue-400/20 text-blue-100"
                         : (c.status || "").toLowerCase() === "rejected"
                         ? "bg-red-400/20 text-red-100"
+                        : (c.status || "").toLowerCase() === "pending"
+                        ? "bg-yellow-400/20 text-yellow-100"
                         : "bg-emerald-400/20 text-emerald-100"
                     }`}>
-                      {(c.status || "").toLowerCase() === 'found' ? copy.resolved : copy.open}
+                      {c.cancelled_at
+                        ? copy.canceled
+                        : (c.status || "").toLowerCase() === 'found' 
+                        ? copy.resolved 
+                        : (c.status || "").toLowerCase() === 'rejected'
+                        ? copy.rejected
+                        : (c.status || "").toLowerCase() === 'pending'
+                        ? copy.pending
+                        : copy.open}
                     </span>
                   </div>
                 </div>
@@ -562,8 +656,7 @@ export default function Home() {
                 <div className="flex flex-wrap gap-2 text-xs text-emerald-100/80">
                   {c.age && <span>Age: {c.age}</span>}
                   {c.gender && <span>· Gender: {c.gender === 'male' ? copy.male : c.gender === 'female' ? copy.female : c.gender}</span>}
-                  {c.last_seen_date && c.case_type === 'missing' && <span>· {copy.lastSeen}: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
-                  {c.found_date && c.case_type === 'found' && <span>· {copy.foundAt}: {new Date(c.found_date).toLocaleDateString()}</span>}
+                  {c.last_seen_date && <span>· {c.case_type === 'missing' ? copy.lastSeen : copy.foundAt}: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
                 </div>
                 <p className="line-clamp-2 text-sm text-emerald-50/90" dir={lang === "ur" ? "rtl" : "ltr"}>
                   {lang === "ur" ? c.description_ur : c.description}
@@ -601,7 +694,15 @@ export default function Home() {
                    <div>
                      <p className="text-xs uppercase tracking-[0.2em] text-emerald-100">{copy.statusLabel}</p>
                      <p className="text-lg font-semibold text-white">
-                       {(selectedCase.status || "").toLowerCase() === 'found' ? copy.resolved : copy.open}
+                       {selectedCase.cancelled_at
+                         ? copy.canceled
+                         : (selectedCase.status || "").toLowerCase() === 'found' 
+                         ? copy.resolved 
+                         : (selectedCase.status || "").toLowerCase() === 'rejected'
+                         ? copy.rejected
+                         : (selectedCase.status || "").toLowerCase() === 'pending'
+                         ? copy.pending
+                         : copy.open}
                      </p>
                    </div>
                 </div>
@@ -649,49 +750,47 @@ export default function Home() {
                         : 'N/A'}
                     </span>
                   </div>
-                  {selectedCase.last_seen_location || selectedCase.found_location ? (
+                  {selectedCase.last_seen_location && (
                     <div className="flex items-start justify-between">
                       <span className="text-emerald-100">{copy.location}</span>
-                      <span className="text-white text-right max-w-[60%]">{selectedCase.last_seen_location || selectedCase.found_location}</span>
+                      <span className="text-white text-right max-w-[60%]">{selectedCase.last_seen_location}</span>
                     </div>
-                  ) : null}
-                  {(selectedCase.last_seen_date || selectedCase.found_date) && (
+                  )}
+                  {selectedCase.last_seen_date && (
                     <div className="flex items-center justify-between">
                       <span className="text-emerald-100">{selectedCase.case_type === "missing" ? copy.lastSeen : copy.foundAt}</span>
                       <span className="text-white text-xs">
-                        {new Date(selectedCase.last_seen_date || selectedCase.found_date).toLocaleDateString()}
+                        {new Date(selectedCase.last_seen_date).toLocaleDateString()}
                       </span>
                     </div>
                   )}
                 </div>
 
-                {/* Contact Information */}
-                {(selectedCase.reporter?.name || selectedCase.reporter?.email || selectedCase.contact_email || selectedCase.contact_phone) && (
-                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-900/10 p-4 space-y-2">
-                    <p className="text-sm font-semibold text-emerald-100">{copy.contactInfo}</p>
-                    <div className="space-y-2 text-sm text-emerald-50">
-                      {selectedCase.reporter?.name && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-emerald-100">{copy.contactName}</span>
-                          <span className="text-white">{selectedCase.reporter.name}</span>
-                        </div>
-                      )}
-                      {(selectedCase.reporter?.email || selectedCase.contact_email) && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-emerald-100">{copy.contactEmail}</span>
-                          <a href={`mailto:${selectedCase.reporter?.email || selectedCase.contact_email}`} className="text-emerald-400 hover:text-emerald-300 underline text-right max-w-[60%] truncate">
-                            {selectedCase.reporter?.email || selectedCase.contact_email}
-                          </a>
-                        </div>
-                      )}
-                      {selectedCase.contact_phone && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-emerald-100">{copy.contactPhone}</span>
-                          <a href={`tel:${selectedCase.contact_phone}`} className="text-emerald-400 hover:text-emerald-300 underline">
-                            {selectedCase.contact_phone}
-                          </a>
-                        </div>
-                      )}
+                {/* Request Contact Information */}
+                {selectedCase.status?.toLowerCase() !== 'found' && selectedCase.status?.toLowerCase() !== 'rejected' && !selectedCase.cancelled_at && (
+                  <div className="rounded-2xl border border-emerald-400/20 bg-emerald-900/10 p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                      </svg>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-emerald-100 mb-1">Have Information?</p>
+                        <p className="text-xs text-emerald-100/80 mb-3">
+                          If you have information about this case, you can request to contact the case reporter.
+                        </p>
+                        <button
+                          onClick={() => {
+                            const caseId = selectedCase.case_id || selectedCase.id;
+                            if (caseId) {
+                              setShowContactRequestModal(true);
+                            }
+                          }}
+                          className="w-full bg-gradient-to-r from-emerald-400 to-emerald-500 text-black font-semibold py-2.5 rounded-xl hover:from-emerald-300 hover:to-emerald-400 transition-all text-sm"
+                        >
+                          📧 Request Contact Information
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -721,7 +820,7 @@ export default function Home() {
                     <iframe
                       title="Case location"
                       src={`https://www.google.com/maps?q=${encodeURIComponent(
-                        selectedCase.last_seen_location || selectedCase.found_location || "Pakistan"
+                        selectedCase.last_seen_location || "Pakistan"
                       )}&output=embed`}
                       className="h-48 w-full"
                       loading="lazy"
@@ -810,7 +909,50 @@ export default function Home() {
         )}
 
       </div>
+
+      {/* Contact Request Modal */}
+      <ContactRequestModal
+        isOpen={showContactRequestModal}
+        onClose={() => {
+          setShowContactRequestModal(false);
+          setContactRequestSuccess(false);
+        }}
+        onSubmit={async (email, message) => {
+          if (!selectedCase) return;
+          setContactRequestLoading(true);
+          try {
+            const caseId = selectedCase.case_id || selectedCase.id;
+            await caseApi.requestContact(caseId, email, message);
+            setContactRequestSuccess(true);
+            setTimeout(() => {
+              setShowContactRequestModal(false);
+              setContactRequestSuccess(false);
+            }, 2000);
+          } catch (err) {
+            alert(err.message || 'Failed to send contact request');
+          } finally {
+            setContactRequestLoading(false);
+          }
+        }}
+        caseName={selectedCase?.name || 'this case'}
+        isLoading={contactRequestLoading}
+      />
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-400 mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }
 

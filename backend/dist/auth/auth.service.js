@@ -107,12 +107,18 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Please verify your email address first. Check your inbox for the verification code.');
         }
         if (user.role === 'admin') {
-            await this.sendOtpToUser(user.id, email);
-            return {
-                message: 'Please check your email for the verification code to complete login.',
-                email: email,
-                requiresOtp: true,
-            };
+            try {
+                await this.sendOtpToUser(user.id, email);
+                return {
+                    message: 'Please check your email for the verification code to complete login.',
+                    email: email,
+                    requiresOtp: true,
+                };
+            }
+            catch (error) {
+                console.error('Failed to send OTP to admin:', error);
+                throw new common_1.BadRequestException(error.message || 'Failed to send verification code. Please try again or contact support.');
+            }
         }
         const token = this.generateToken(user.id, user.email, user.role);
         this.emailService.sendLoginNotificationEmail(email, new Date(), ipAddress).catch((error) => {
@@ -191,15 +197,29 @@ let AuthService = class AuthService {
         if (!(0, email_util_1.isValidEmailFormat)(email)) {
             throw new common_1.BadRequestException('Invalid email address format. Please provide a valid email address.');
         }
-        const isDomainValid = await (0, email_util_1.isValidEmailDomain)(email);
-        if (!isDomainValid) {
-            throw new common_1.BadRequestException('Invalid email address. The email domain does not exist or cannot receive emails. Please check your email address and try again.');
+        try {
+            const domainValidationPromise = (0, email_util_1.isValidEmailDomain)(email);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Email domain validation timeout')), 5000));
+            const isDomainValid = await Promise.race([domainValidationPromise, timeoutPromise]);
+            if (!isDomainValid) {
+                console.warn(`Email domain validation failed for ${email}, but proceeding anyway`);
+            }
+        }
+        catch (error) {
+            console.warn(`Email domain validation error for ${email}:`, error.message);
         }
         const otp = (0, otp_util_1.generateOtp)();
         const otpHash = await (0, otp_util_1.hashOtp)(otp);
         const otpExpiresAt = (0, otp_util_1.createOtpExpiration)();
         await this.usersService.updateOtpData(userId, otpHash, otpExpiresAt);
-        await this.emailService.sendOtpEmail(email, otp);
+        try {
+            await this.emailService.sendOtpEmail(email, otp);
+            console.log(`OTP sent successfully to ${email}`);
+        }
+        catch (error) {
+            console.error(`Failed to send OTP email to ${email}:`, error);
+            throw new common_1.BadRequestException(`Failed to send verification code: ${error.message || 'Email service error'}`);
+        }
     }
     async validateUser(userId) {
         const user = await this.usersService.findById(userId);

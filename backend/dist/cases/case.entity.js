@@ -62,6 +62,8 @@ let Case = class Case {
     verified_by;
     verified_at;
     rejection_reason;
+    matched_with_case_id;
+    cancelled_at;
     createdAt;
     updatedAt;
 };
@@ -182,6 +184,14 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Case.prototype, "rejection_reason", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Case.prototype, "matched_with_case_id", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true, type: 'timestamp' }),
+    __metadata("design:type", Object)
+], Case.prototype, "cancelled_at", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

@@ -51,6 +51,11 @@ const translations = {
     selectPrompt: "Select a case to view details",
     backToMap: "Open map",
     langLabel: "Language",
+    potentialMatches: "Potential Matches",
+    matchScore: "Match Score",
+    confirmMatch: "Confirm Match",
+    rejectMatch: "Reject Match",
+    noMatches: "No potential matches found",
   },
   ur: {
     title: "آپریشنز ڈیسک",
@@ -94,6 +99,11 @@ const translations = {
     selectPrompt: "تفصیل دیکھنے کے لیے کیس منتخب کریں",
     backToMap: "نقشہ کھولیں",
     langLabel: "زبان",
+    potentialMatches: "ممکنہ میچز",
+    matchScore: "میچ اسکور",
+    confirmMatch: "میچ کی تصدیق کریں",
+    rejectMatch: "میچ مسترد کریں",
+    noMatches: "کوئی ممکنہ میچ نہیں ملا",
   },
 };
 
@@ -184,6 +194,9 @@ export default function AdminDashboard() {
   const [loadingCases, setLoadingCases] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const [potentialMatches, setPotentialMatches] = useState([]);
+  const [loadingMatches, setLoadingMatches] = useState(false);
+  const [matchActionLoading, setMatchActionLoading] = useState({});
 
   // auth guard
   useEffect(() => {
@@ -200,7 +213,7 @@ export default function AdminDashboard() {
   // load cases
   useEffect(() => {
     const load = async () => {
-      if (!token) return;
+      if (!token || !isAuthenticated) return;
       setLoadingCases(true);
       try {
         const data = await caseApi.getCases({}, token);
@@ -214,17 +227,40 @@ export default function AdminDashboard() {
       }
     };
     load();
-  }, [token]);
+  }, [token, isAuthenticated]);
+
+  // load potential matches
+  useEffect(() => {
+    const loadMatches = async () => {
+      if (!token || !isAuthenticated) return;
+      setLoadingMatches(true);
+      try {
+        const data = await caseApi.getPotentialMatches(token);
+        setPotentialMatches(data || []);
+      } catch (err) {
+        console.error("Failed to load potential matches:", err);
+        setPotentialMatches([]);
+      } finally {
+        setLoadingMatches(false);
+      }
+    };
+    loadMatches();
+    // Refresh matches every 30 seconds
+    const interval = setInterval(loadMatches, 30000);
+    return () => clearInterval(interval);
+  }, [token, isAuthenticated]);
 
   const copy = translations[lang];
 
   const stats = useMemo(() => {
-    const open = cases.filter((c) => (c.status || "").toLowerCase() === "verified").length;
-    const resolved = cases.filter((c) => (c.status || "").toLowerCase() === "found").length;
-    const urgent = cases.filter((c) => (c.priority || "").toLowerCase() === "high").length;
-    const awaiting = cases.filter((c) => (c.status || "").toLowerCase() === "pending").length;
-    const rejected = cases.filter((c) => (c.status || "").toLowerCase() === "rejected").length;
-    const total = cases.length;
+    // Filter out cancelled cases from all stats
+    const activeCases = cases.filter((c) => !c.cancelled_at);
+    const open = activeCases.filter((c) => (c.status || "").toLowerCase() === "verified").length;
+    const resolved = activeCases.filter((c) => (c.status || "").toLowerCase() === "found").length;
+    const urgent = activeCases.filter((c) => (c.priority || "").toLowerCase() === "high").length;
+    const awaiting = activeCases.filter((c) => (c.status || "").toLowerCase() === "pending").length;
+    const rejected = activeCases.filter((c) => (c.status || "").toLowerCase() === "rejected").length;
+    const total = activeCases.length;
     return { open, resolved, urgent, awaiting, rejected, total };
   }, [cases]);
 
@@ -232,6 +268,9 @@ export default function AdminDashboard() {
 
   const filtered = useMemo(() => {
     return cases.filter((c) => {
+      // Exclude cancelled cases from the admin panel queue
+      if (c.cancelled_at) return false;
+      
       const text = (search || "").toLowerCase();
       const haystack = [c.name, c.name_ur, c.city, c.area, c.description, c.description_ur]
         .join(" ")
@@ -266,6 +305,17 @@ export default function AdminDashboard() {
     try {
       const updated = await caseApi.verifyCase(caseId, token);
       updateCaseInState(updated);
+      
+      // Reload potential matches after verification (new matches may be created)
+      if (token) {
+        try {
+          const matchesData = await caseApi.getPotentialMatches(token);
+          setPotentialMatches(matchesData || []);
+        } catch (err) {
+          console.error("Failed to reload matches:", err);
+        }
+      }
+      
       alert("Case verified successfully!");
     } catch (err) {
       console.error("Verify error:", err);
@@ -275,22 +325,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const markFound = async () => {
-    if (!selectedCase) return;
-    const caseId = selectedCase.case_id || selectedCase.id;
-    if (!caseId) return;
-    setActionLoading(true);
-    try {
-      const updated = await caseApi.markFound(caseId, token);
-      updateCaseInState(updated);
-      alert("Case marked as found successfully!");
-    } catch (err) {
-      console.error("Mark found error:", err);
-      alert(err.message || "Failed to mark case as found");
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const rejectCase = async () => {
     if (!selectedCase) return;
@@ -314,12 +348,16 @@ export default function AdminDashboard() {
     }
   };
 
-  if (loading || !isAuthenticated) {
-    return <div className="flex min-h-screen items-center justify-center text-white">Loading...</div>;
-  }
-
-  if (user?.role !== "admin") {
-    return <div className="flex min-h-screen items-center justify-center text-white">Access denied. Admin only.</div>;
+  // Show loading state while checking auth or if not authenticated
+  if (loading || !isAuthenticated || user?.role !== "admin") {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="inline-block w-8 h-8 border-4 border-emerald-400 border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p className="text-emerald-100">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -444,6 +482,99 @@ export default function AdminDashboard() {
           <AdminTools lang={lang} />
         </section>
 
+        {/* Potential Matches */}
+        {potentialMatches.length > 0 && (
+          <section className="glass-card rounded-3xl border border-emerald-400/30 bg-emerald-900/10 p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <SectionTitle text={copy.potentialMatches} lang={lang} />
+              <span className="text-xs text-emerald-300/80">{potentialMatches.length} {potentialMatches.length === 1 ? 'match' : 'matches'}</span>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              {potentialMatches.map((match) => (
+                <div key={match.id} className="bg-white/5 rounded-2xl border border-emerald-400/20 p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs font-semibold text-emerald-300">
+                      {copy.matchScore}: {match.match_score}%
+                    </span>
+                    <span className="text-xs text-emerald-100/60">
+                      {new Date(match.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-emerald-100/80 w-16">Missing:</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-white">
+                          {match.missingCase?.name || 'N/A'}
+                        </p>
+                        <p className="text-xs text-emerald-100/70">
+                          ID: {match.missing_case_id}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-xs text-emerald-100/80 w-16">Found:</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-white">
+                          {match.foundCase?.name || 'N/A'}
+                        </p>
+                        <p className="text-xs text-emerald-100/70">
+                          ID: {match.found_case_id}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!token) return;
+                        setMatchActionLoading({ ...matchActionLoading, [`confirm-${match.id}`]: true });
+                        try {
+                          await caseApi.confirmMatch(match.id, token);
+                          // Reload matches
+                          const data = await caseApi.getPotentialMatches(token);
+                          setPotentialMatches(data || []);
+                          // Reload cases to refresh status
+                          const casesData = await caseApi.getCases({}, token);
+                          setCases(casesData || []);
+                        } catch (err) {
+                          alert(err.message || 'Failed to confirm match');
+                        } finally {
+                          setMatchActionLoading({ ...matchActionLoading, [`confirm-${match.id}`]: false });
+                        }
+                      }}
+                      disabled={matchActionLoading[`confirm-${match.id}`]}
+                      className="flex-1 bg-emerald-500/20 border border-emerald-400/50 text-emerald-200 font-semibold px-4 py-2 rounded-lg hover:border-emerald-400/80 transition-colors disabled:opacity-50 text-sm"
+                    >
+                      {matchActionLoading[`confirm-${match.id}`] ? 'Confirming...' : copy.confirmMatch}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (!token) return;
+                        setMatchActionLoading({ ...matchActionLoading, [`reject-${match.id}`]: true });
+                        try {
+                          await caseApi.rejectMatch(match.id, token);
+                          // Reload matches
+                          const data = await caseApi.getPotentialMatches(token);
+                          setPotentialMatches(data || []);
+                        } catch (err) {
+                          alert(err.message || 'Failed to reject match');
+                        } finally {
+                          setMatchActionLoading({ ...matchActionLoading, [`reject-${match.id}`]: false });
+                        }
+                      }}
+                      disabled={matchActionLoading[`reject-${match.id}`]}
+                      className="flex-1 bg-red-500/20 border border-red-400/50 text-red-200 font-semibold px-4 py-2 rounded-lg hover:border-red-400/80 transition-colors disabled:opacity-50 text-sm"
+                    >
+                      {matchActionLoading[`reject-${match.id}`] ? 'Rejecting...' : copy.rejectMatch}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Main grid */}
         <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="glass-card rounded-3xl border border-white/10 p-5">
@@ -480,8 +611,7 @@ export default function AdminDashboard() {
                   <div className="flex flex-wrap gap-2 text-xs text-emerald-100/80">
                     {c.age && <span>Age: {c.age}</span>}
                     {c.gender && <span>· Gender: {c.gender}</span>}
-                    {c.last_seen_date && c.case_type === 'missing' && <span>· Last seen: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
-                    {c.found_date && c.case_type === 'found' && <span>· Found: {new Date(c.found_date).toLocaleDateString()}</span>}
+                    {c.last_seen_date && <span>· {c.case_type === 'missing' ? 'Last seen' : 'Found'}: {new Date(c.last_seen_date).toLocaleDateString()}</span>}
                   </div>
                   <p className="line-clamp-2 text-sm text-emerald-50/90" dir={lang === "ur" ? "rtl" : "ltr"}>
                     {lang === "ur" ? c.description_ur : c.description}
@@ -500,24 +630,17 @@ export default function AdminDashboard() {
               <div className="flex gap-2">
                 <button
                   onClick={verifySelected}
-                  disabled={actionLoading || !selectedCase || (selectedCase.status && ['rejected', 'found', 'verified'].includes(selectedCase.status.toLowerCase()))}
+                  disabled={actionLoading || !selectedCase || selectedCase.cancelled_at || (selectedCase.status && ['rejected', 'found', 'verified'].includes(selectedCase.status.toLowerCase()))}
                   className="glass-card rounded-full px-3 py-2 text-xs text-white disabled:opacity-60"
                 >
                   Verify
                 </button>
                 <button
                   onClick={rejectCase}
-                  disabled={actionLoading || !selectedCase || (selectedCase.status && ['rejected', 'found', 'verified'].includes(selectedCase.status.toLowerCase()))}
+                  disabled={actionLoading || !selectedCase || selectedCase.cancelled_at || (selectedCase.status && ['rejected', 'found', 'verified'].includes(selectedCase.status.toLowerCase()))}
                   className="glass-card rounded-full px-3 py-2 text-xs text-white disabled:opacity-60"
                 >
                   Reject
-                </button>
-                <button
-                  onClick={markFound}
-                  disabled={actionLoading || !selectedCase || (selectedCase.status && ['rejected', 'found'].includes(selectedCase.status.toLowerCase()))}
-                  className="neo-press rounded-full bg-linear-to-r from-emerald-400 to-amber-300 px-3 py-2 text-xs font-semibold text-black disabled:opacity-60"
-                >
-                  Mark Found
                 </button>
               </div>
             </div>
