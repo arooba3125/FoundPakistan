@@ -235,6 +235,68 @@ let EmailService = class EmailService {
             this.logger.error(`Failed to send case status email to ${email}:`, error.message);
         }
     }
+    async sendLoginNotificationEmail(email, timestamp, ipAddress) {
+        if (!this.transporter) {
+            this.logger.log(`[TEST MODE] Login notification for ${email} at ${timestamp.toISOString()}${ipAddress ? ` from IP: ${ipAddress}` : ''}`);
+            return;
+        }
+        const formattedDate = timestamp.toLocaleString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            timeZoneName: 'short',
+        });
+        try {
+            await this.transporter.sendMail({
+                from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+                to: email,
+                subject: '🔐 New Login Detected - FoundPakistan',
+                html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+            <div style="text-align: center; margin-bottom: 30px;">
+              <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
+            </div>
+            
+            <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
+              <h2 style="color: #111827; margin-top: 0;">New Login Detected</h2>
+              <p style="color: #374151; font-size: 16px; line-height: 1.6;">
+                We detected a new login to your FoundPakistan account.
+              </p>
+            </div>
+
+            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <p style="color: #111827; font-size: 16px; margin: 0 0 12px 0;"><strong>Login Details:</strong></p>
+              <p style="color: #374151; margin: 8px 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
+              ${ipAddress ? `<p style="color: #374151; margin: 8px 0;"><strong>IP Address:</strong> ${ipAddress}</p>` : ''}
+            </div>
+
+            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 24px 0; border-radius: 4px;">
+              <p style="color: #92400e; font-size: 14px; margin: 0; line-height: 1.6;">
+                <strong>⚠️ Wasn't you?</strong><br/>
+                If you didn't log in, please secure your account immediately by changing your password. If you notice any suspicious activity, contact our support team right away.
+              </p>
+            </div>
+
+            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">This is an automated security notification from FoundPakistan.</p>
+              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">If you have any concerns, please contact our support team through your account dashboard.</p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
+          </div>
+        `,
+            });
+            this.logger.log(`Login notification email sent to ${email}`);
+        }
+        catch (error) {
+            this.logger.error(`Failed to send login notification email to ${email}:`, error.message);
+        }
+    }
 };
 exports.EmailService = EmailService;
 exports.EmailService = EmailService = __decorate([

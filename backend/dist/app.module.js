@@ -23,17 +23,21 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            config_1.ConfigModule.forRoot({ isGlobal: true }),
+            config_1.ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
             schedule_1.ScheduleModule.forRoot(),
-            typeorm_1.TypeOrmModule.forRoot({
-                type: 'postgres',
-                host: process.env.DB_HOST,
-                port: Number(process.env.DB_PORT) || 5432,
-                database: process.env.DB_NAME,
-                username: process.env.DB_USER,
-                password: process.env.DB_PASS,
-                autoLoadEntities: true,
-                synchronize: true,
+            typeorm_1.TypeOrmModule.forRootAsync({
+                imports: [config_1.ConfigModule],
+                useFactory: (configService) => ({
+                    type: 'postgres',
+                    host: configService.get('DB_HOST') || 'localhost',
+                    port: configService.get('DB_PORT') || 5432,
+                    database: configService.get('DB_NAME'),
+                    username: configService.get('DB_USER'),
+                    password: configService.get('DB_PASS'),
+                    autoLoadEntities: true,
+                    synchronize: true,
+                }),
+                inject: [config_1.ConfigService],
             }),
             auth_module_1.AuthModule,
             users_module_1.UsersModule,

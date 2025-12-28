@@ -62,8 +62,18 @@ export function AuthProvider({ children }) {
     setError(null);
     try {
       const data = await authApi.login(email, password, expectedRole);
-      // Login now requires OTP, so don't auto-login
-      // Return data for OTP verification step
+      // Admin login requires OTP, so it returns requiresOtp: true (don't save token yet)
+      // User login returns token directly (save token and user)
+      if (data.requiresOtp) {
+        // Admin login - return data for OTP verification step
+        return data;
+      } else if (data.access_token) {
+        // User login - save token and user data immediately
+        localStorage.setItem('auth_token', data.access_token);
+        setToken(data.access_token);
+        setUser(data.user);
+        return data;
+      }
       return data;
     } catch (err) {
       setError(err.message);

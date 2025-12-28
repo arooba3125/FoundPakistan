@@ -13,13 +13,17 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(@Body() loginDto: LoginDto, @Request() req) {
+    // Extract IP address from request
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown';
+    return this.authService.login(loginDto, ipAddress);
   }
 
   @Post('verify-otp')
-  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto) {
-    return this.authService.verifyOtp(verifyOtpDto);
+  async verifyOtp(@Body() verifyOtpDto: VerifyOtpDto, @Request() req) {
+    // Extract IP address from request for login notification (if admin login)
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress;
+    return this.authService.verifyOtp(verifyOtpDto, ipAddress);
   }
 
   @Post('resend-otp')

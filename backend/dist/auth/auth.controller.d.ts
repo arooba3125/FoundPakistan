@@ -8,12 +8,26 @@ export declare class AuthController {
         email: string;
         requiresOtp: boolean;
     }>;
-    login(loginDto: LoginDto): Promise<{
+    login(loginDto: LoginDto, req: any): Promise<{
         message: string;
         email: string;
         requiresOtp: boolean;
+        access_token?: undefined;
+        user?: undefined;
+    } | {
+        access_token: string;
+        user: {
+            id: string;
+            email: string;
+            name: string;
+            role: import("../users/user.entity").UserRole.USER;
+            isVerified: true;
+        };
+        message?: undefined;
+        email?: undefined;
+        requiresOtp?: undefined;
     }>;
-    verifyOtp(verifyOtpDto: VerifyOtpDto): Promise<{
+    verifyOtp(verifyOtpDto: VerifyOtpDto, req: any): Promise<{
         access_token: string;
         user: {
             id: string;

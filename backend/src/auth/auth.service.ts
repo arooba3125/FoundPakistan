@@ -67,7 +67,7 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, ipAddress?: string) {
     const { email, password, expectedRole } = loginDto;
 
     // Find user - check if email exists
@@ -92,17 +92,44 @@ export class AuthService {
       }
     }
 
-    // Generate and send OTP
-    await this.sendOtpToUser(user.id, email);
+    // Check if user is verified (must have verified email via OTP at signup)
+    if (!user.isVerified) {
+      throw new UnauthorizedException('Please verify your email address first. Check your inbox for the verification code.');
+    }
+
+    // If admin, require OTP for login (additional security layer)
+    if (user.role === 'admin') {
+      // Generate and send OTP
+      await this.sendOtpToUser(user.id, email);
+      return {
+        message: 'Please check your email for the verification code to complete login.',
+        email: email,
+        requiresOtp: true,
+      };
+    }
+
+    // Regular users: Generate JWT token immediately (no OTP required)
+    const token = this.generateToken(user.id, user.email, user.role);
+
+    // Send login notification email (non-blocking - don't wait for it)
+    this.emailService.sendLoginNotificationEmail(email, new Date(), ipAddress).catch((error) => {
+      // Log error but don't fail the login
+      console.error('Failed to send login notification email:', error);
+    });
 
     return {
-      message: 'Please check your email for the verification code to complete login.',
-      email: email,
-      requiresOtp: true,
+      access_token: token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        isVerified: user.isVerified,
+      },
     };
   }
 
-  async verifyOtp(verifyOtpDto: VerifyOtpDto) {
+  async verifyOtp(verifyOtpDto: VerifyOtpDto, ipAddress?: string) {
     const { email, otp } = verifyOtpDto;
 
     // Find user
@@ -134,13 +161,29 @@ export class AuthService {
       throw new UnauthorizedException('Invalid OTP. Please try again.');
     }
 
-    // OTP is valid - clear OTP data and mark user as verified
+    // OTP is valid - clear OTP data
     await this.usersService.clearOtpData(user.id);
-    user.isVerified = true;
-    await this.usersRepository.save(user);
+    
+    // Determine if this is signup (user not verified) or login (user already verified)
+    const isSignup = !user.isVerified;
+    
+    // Mark user as verified (if signup)
+    if (isSignup) {
+      user.isVerified = true;
+      await this.usersRepository.save(user);
+    }
 
     // Generate JWT token
     const token = this.generateToken(user.id, user.email, user.role);
+
+    // If admin login (user already verified), send login notification email
+    if (!isSignup && user.role === 'admin' && ipAddress) {
+      // Send login notification email (non-blocking - don't wait for it)
+      this.emailService.sendLoginNotificationEmail(email, new Date(), ipAddress).catch((error) => {
+        // Log error but don't fail the login
+        console.error('Failed to send admin login notification email:', error);
+      });
+    }
 
     return {
       access_token: token,

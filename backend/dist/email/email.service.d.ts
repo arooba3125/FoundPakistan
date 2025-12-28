@@ -8,4 +8,5 @@ export declare class EmailService {
     sendVerificationEmail(email: string, token: string): Promise<void>;
     sendOtpEmail(email: string, otp: string): Promise<void>;
     sendCaseStatusEmail(email: string, caseId: string, status: string, caseName?: string, caseType?: string, rejectionReason?: string): Promise<void>;
+    sendLoginNotificationEmail(email: string, timestamp: Date, ipAddress?: string): Promise<void>;
 }

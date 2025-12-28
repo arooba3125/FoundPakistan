@@ -85,7 +85,7 @@ let AuthService = class AuthService {
             requiresOtp: true,
         };
     }
-    async login(loginDto) {
+    async login(loginDto, ipAddress) {
         const { email, password, expectedRole } = loginDto;
         const user = await this.usersService.findByEmail(email);
         if (!user) {
@@ -103,14 +103,33 @@ let AuthService = class AuthService {
                 throw new common_1.UnauthorizedException('Admin accounts cannot login here. Please use the admin portal instead.');
             }
         }
-        await this.sendOtpToUser(user.id, email);
+        if (!user.isVerified) {
+            throw new common_1.UnauthorizedException('Please verify your email address first. Check your inbox for the verification code.');
+        }
+        if (user.role === 'admin') {
+            await this.sendOtpToUser(user.id, email);
+            return {
+                message: 'Please check your email for the verification code to complete login.',
+                email: email,
+                requiresOtp: true,
+            };
+        }
+        const token = this.generateToken(user.id, user.email, user.role);
+        this.emailService.sendLoginNotificationEmail(email, new Date(), ipAddress).catch((error) => {
+            console.error('Failed to send login notification email:', error);
+        });
         return {
-            message: 'Please check your email for the verification code to complete login.',
-            email: email,
-            requiresOtp: true,
+            access_token: token,
+            user: {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                isVerified: user.isVerified,
+            },
         };
     }
-    async verifyOtp(verifyOtpDto) {
+    async verifyOtp(verifyOtpDto, ipAddress) {
         const { email, otp } = verifyOtpDto;
         const user = await this.usersService.findByEmail(email);
         if (!user) {
@@ -131,9 +150,17 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Invalid OTP. Please try again.');
         }
         await this.usersService.clearOtpData(user.id);
-        user.isVerified = true;
-        await this.usersRepository.save(user);
+        const isSignup = !user.isVerified;
+        if (isSignup) {
+            user.isVerified = true;
+            await this.usersRepository.save(user);
+        }
         const token = this.generateToken(user.id, user.email, user.role);
+        if (!isSignup && user.role === 'admin' && ipAddress) {
+            this.emailService.sendLoginNotificationEmail(email, new Date(), ipAddress).catch((error) => {
+                console.error('Failed to send admin login notification email:', error);
+            });
+        }
         return {
             access_token: token,
             user: {

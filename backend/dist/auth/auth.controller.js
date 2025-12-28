@@ -25,11 +25,13 @@ let AuthController = class AuthController {
     async signup(signupDto) {
         return this.authService.signup(signupDto);
     }
-    async login(loginDto) {
-        return this.authService.login(loginDto);
+    async login(loginDto, req) {
+        const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || 'Unknown';
+        return this.authService.login(loginDto, ipAddress);
     }
-    async verifyOtp(verifyOtpDto) {
-        return this.authService.verifyOtp(verifyOtpDto);
+    async verifyOtp(verifyOtpDto, req) {
+        const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress;
+        return this.authService.verifyOtp(verifyOtpDto, ipAddress);
     }
     async resendOtp(resendOtpDto) {
         return this.authService.resendOtp(resendOtpDto);
@@ -52,15 +54,17 @@ __decorate([
 __decorate([
     (0, common_1.Post)('login'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.LoginDto]),
+    __metadata("design:paramtypes", [auth_dto_1.LoginDto, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "login", null);
 __decorate([
     (0, common_1.Post)('verify-otp'),
     __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [auth_dto_1.VerifyOtpDto]),
+    __metadata("design:paramtypes", [auth_dto_1.VerifyOtpDto, Object]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "verifyOtp", null);
 __decorate([
