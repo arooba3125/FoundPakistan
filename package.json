@@ -9,7 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@nestjs/jwt": "^11.0.2",
+    "leaflet": "^1.9.4",
     "next": "16.1.0",
+    "next-intl": "^3.14.2",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
