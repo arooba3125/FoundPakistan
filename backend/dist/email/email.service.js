@@ -1,10 +1,43 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
 var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
     var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
     if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
@@ -12,36 +45,45 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmailService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const resend_1 = require("resend");
+const nodemailer = __importStar(require("nodemailer"));
 let EmailService = class EmailService {
     configService;
-    resend = null;
+    transporter = null;
     logger = new common_1.Logger('EmailService');
     fromEmail;
     constructor(configService) {
         this.configService = configService;
-        this.initializeResend();
+        this.initializeMailjet();
     }
-    initializeResend() {
-        const resendApiKey = this.configService.get('RESEND_API_KEY');
-        if (resendApiKey) {
-            this.resend = new resend_1.Resend(resendApiKey);
-            this.fromEmail = this.configService.get('EMAIL_FROM') || 'FoundPakistan <onboarding@resend.dev>';
-            this.logger.log('✅ Email service configured with Resend');
+    initializeMailjet() {
+        const mailjetApiKey = this.configService.get('MAILJET_API_KEY');
+        const mailjetSecretKey = this.configService.get('MAILJET_SECRET_KEY');
+        if (mailjetApiKey && mailjetSecretKey) {
+            this.transporter = nodemailer.createTransport({
+                host: 'in-v3.mailjet.com',
+                port: 587,
+                secure: false,
+                auth: {
+                    user: mailjetApiKey,
+                    pass: mailjetSecretKey,
+                },
+            });
+            this.fromEmail = this.configService.get('EMAIL_FROM') || 'FoundPakistan <noreply@foundpakistan.pk>';
+            this.logger.log('✅ Email service configured with Mailjet');
         }
         else {
-            this.logger.warn('⚠️ RESEND_API_KEY not set - emails will be logged only');
-            this.resend = null;
+            this.logger.warn('⚠️ MAILJET credentials not set - emails will be logged only');
+            this.transporter = null;
         }
     }
     async sendVerificationEmail(email, token) {
         const verificationCode = token.substring(0, 6).toUpperCase();
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.warn(`[TEST MODE] Verification code for ${email}: ${verificationCode}`);
             return;
         }
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: email,
                 subject: 'Verify Your Email - FoundPakistan',
@@ -70,12 +112,12 @@ let EmailService = class EmailService {
         if (!email || !emailRegex.test(email.trim())) {
             throw new Error(`Invalid email address format: ${email}`);
         }
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.warn(`[TEST MODE] OTP for ${email}: ${otp}`);
             return;
         }
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: email,
                 subject: 'Your Login OTP - FoundPakistan',
@@ -102,7 +144,7 @@ let EmailService = class EmailService {
         }
     }
     async sendCaseStatusEmail(email, caseId, status, caseName, caseType, rejectionReason) {
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.log(`[TEST MODE] Case ${caseId} status updated to ${status} for ${email}`);
             return;
         }
@@ -137,7 +179,7 @@ let EmailService = class EmailService {
         }
         const caseTypeText = caseType === 'missing' ? 'Missing Person' : 'Found Person';
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: email,
                 subject: subject,
@@ -177,7 +219,7 @@ let EmailService = class EmailService {
         }
     }
     async sendLoginNotificationEmail(email, timestamp, ipAddress) {
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.log(`[TEST MODE] Login notification for ${email} at ${timestamp.toISOString()}${ipAddress ? ` from IP: ${ipAddress}` : ''}`);
             return;
         }
@@ -192,7 +234,7 @@ let EmailService = class EmailService {
             timeZoneName: 'short',
         });
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: email,
                 subject: '🔐 New Login Detected - FoundPakistan',
@@ -239,12 +281,12 @@ let EmailService = class EmailService {
         }
     }
     async sendContactRequestEmail(caseReporterEmail, caseId, caseName, requesterEmail, requesterMessage) {
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.log(`[TEST MODE] Contact request for case ${caseId} from ${requesterEmail}`);
             return;
         }
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: caseReporterEmail,
                 subject: `Contact Request for Case ${caseId} - FoundPakistan`,
@@ -294,12 +336,12 @@ let EmailService = class EmailService {
         }
     }
     async sendContactApprovalEmail(requesterEmail, caseId, caseName, contactName, contactPhone, contactEmail) {
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.log(`[TEST MODE] Contact approval for case ${caseId} to ${requesterEmail}`);
             return;
         }
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: requesterEmail,
                 subject: `Contact Request Approved - Case ${caseId}`,
@@ -339,12 +381,12 @@ let EmailService = class EmailService {
         }
     }
     async sendContactRejectionEmail(requesterEmail, caseId, caseName) {
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.log(`[TEST MODE] Contact rejection for case ${caseId} to ${requesterEmail}`);
             return;
         }
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: requesterEmail,
                 subject: `Contact Request - Case ${caseId}`,
@@ -377,12 +419,12 @@ let EmailService = class EmailService {
         }
     }
     async sendMatchConfirmedEmail(reporterEmail, caseId, caseName, matchedCaseId, matchedCaseName, matchedCaseReporterName, matchedCaseContactPhone, matchedCaseContactEmail) {
-        if (!this.resend) {
+        if (!this.transporter) {
             this.logger.log(`[TEST MODE] Match confirmed email for case ${caseId} to ${reporterEmail}`);
             return;
         }
         try {
-            await this.resend.emails.send({
+            await this.transporter.sendMail({
                 from: this.fromEmail,
                 to: reporterEmail,
                 subject: `Match Confirmed - ${caseName} Has Been Found!`,
