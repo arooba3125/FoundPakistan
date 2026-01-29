@@ -5,8 +5,14 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // CORS configuration - allow frontend URLs
+  const allowedOrigins = [
+    'http://localhost:3000',
+    process.env.FRONTEND_URL,
+  ].filter(Boolean);
+  
   app.enableCors({
-    origin: ['http://localhost:3000'],
+    origin: allowedOrigins,
     credentials: true,
   });
   app.setGlobalPrefix('api');
@@ -31,9 +37,10 @@ async function bootstrap() {
     }),
   );
 
-  const port = process.env.APP_PORT ?? 3001;
+  // Use PORT env variable (Render provides this) or fallback to 3001
+  const port = process.env.PORT || process.env.APP_PORT || 3001;
   await app.listen(port);
-  console.log(`✅ Backend running on http://localhost:${port}/api`);
+  console.log(`✅ Backend running on port ${port}`);
 }
 bootstrap().catch((err) => {
   console.error('❌ Failed to start backend:', err);
