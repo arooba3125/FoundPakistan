@@ -1,63 +1,41 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter | null;
+  private resend: Resend | null = null;
   private logger = new Logger('EmailService');
+  private fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    this.initializeTransporter();
+    this.initializeResend();
   }
 
-  private async initializeTransporter() {
-    const emailUser = this.configService.get('EMAIL_USER');
-    const emailPass = this.configService.get('EMAIL_PASS');
+  private initializeResend() {
+    const resendApiKey = this.configService.get('RESEND_API_KEY');
 
-    // If no credentials provided, create test account using Ethereal
-    if (!emailUser || !emailPass) {
-      try {
-        const testAccount = await nodemailer.createTestAccount();
-        this.transporter = nodemailer.createTransport({
-          host: testAccount.smtp.host,
-          port: testAccount.smtp.port,
-          secure: testAccount.smtp.secure,
-          auth: {
-            user: testAccount.user,
-            pass: testAccount.pass,
-          },
-        });
-        this.logger.log('✅ Using Ethereal test email account');
-        this.logger.log(`📧 Test account: ${testAccount.user}`);
-      } catch (error) {
-        this.logger.error('Failed to create Ethereal test account:', error.message);
-        this.transporter = null;
-      }
+    if (resendApiKey) {
+      this.resend = new Resend(resendApiKey);
+      this.fromEmail = this.configService.get('EMAIL_FROM') || 'FoundPakistan <onboarding@resend.dev>';
+      this.logger.log('✅ Email service configured with Resend');
     } else {
-      // Use Gmail SMTP
-      this.transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: emailUser,
-          pass: emailPass, // Use App Password for Gmail
-        },
-      });
-      this.logger.log('✅ Email service configured with Gmail SMTP');
+      this.logger.warn('⚠️ RESEND_API_KEY not set - emails will be logged only');
+      this.resend = null;
     }
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
     const verificationCode = token.substring(0, 6).toUpperCase();
 
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.warn(`[TEST MODE] Verification code for ${email}: ${verificationCode}`);
       return;
     }
 
     try {
-      const info = await this.transporter.sendMail({
-        from: '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: email,
         subject: 'Verify Your Email - FoundPakistan',
         html: `
@@ -73,15 +51,10 @@ export class EmailService {
           </div>
         `,
       });
-
-      // For Ethereal test emails, print preview URL
-      if (process.env.NODE_ENV !== 'production' && info.response && info.response.includes('Ethereal')) {
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        this.logger.log(`📬 Test email preview: ${previewUrl}`);
-      }
+      this.logger.log(`✅ Verification email sent to ${email}`);
     } catch (error) {
       this.logger.error(`Failed to send email to ${email}:`, error.message);
-      // Continue - user can still verify with code from debug response
+      throw error;
     }
   }
 
@@ -92,14 +65,14 @@ export class EmailService {
       throw new Error(`Invalid email address format: ${email}`);
     }
 
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.warn(`[TEST MODE] OTP for ${email}: ${otp}`);
       return;
     }
 
     try {
-      const info = await this.transporter.sendMail({
-        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: email,
         subject: 'Your Login OTP - FoundPakistan',
         html: `
@@ -117,15 +90,10 @@ export class EmailService {
           </div>
         `,
       });
-
-      // For Ethereal test emails, print preview URL
-      if (process.env.NODE_ENV !== 'production' && info.response && info.response.includes('Ethereal')) {
-        const previewUrl = nodemailer.getTestMessageUrl(info);
-        this.logger.log(`📬 Test email preview: ${previewUrl}`);
-      }
+      this.logger.log(`✅ OTP email sent to ${email}`);
     } catch (error) {
       this.logger.error(`Failed to send OTP email to ${email}:`, error.message);
-      throw error; // Re-throw for OTP emails since they're critical
+      throw error;
     }
   }
 
@@ -137,7 +105,7 @@ export class EmailService {
     caseType?: string,
     rejectionReason?: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.log(`[TEST MODE] Case ${caseId} status updated to ${status} for ${email}`);
       return;
     }
@@ -177,8 +145,8 @@ export class EmailService {
     const caseTypeText = caseType === 'missing' ? 'Missing Person' : 'Found Person';
 
     try {
-      await this.transporter.sendMail({
-        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: email,
         subject: subject,
         html: `
@@ -221,7 +189,7 @@ export class EmailService {
   }
 
   async sendLoginNotificationEmail(email: string, timestamp: Date, ipAddress?: string): Promise<void> {
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.log(`[TEST MODE] Login notification for ${email} at ${timestamp.toISOString()}${ipAddress ? ` from IP: ${ipAddress}` : ''}`);
       return;
     }
@@ -238,8 +206,8 @@ export class EmailService {
     });
 
     try {
-      await this.transporter.sendMail({
-        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: email,
         subject: '🔐 New Login Detected - FoundPakistan',
         html: `
@@ -292,14 +260,14 @@ export class EmailService {
     requesterEmail: string,
     requesterMessage?: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.log(`[TEST MODE] Contact request for case ${caseId} from ${requesterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
-        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: caseReporterEmail,
         subject: `Contact Request for Case ${caseId} - FoundPakistan`,
         html: `
@@ -355,14 +323,14 @@ export class EmailService {
     contactPhone: string,
     contactEmail: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.log(`[TEST MODE] Contact approval for case ${caseId} to ${requesterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
-        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: requesterEmail,
         subject: `Contact Request Approved - Case ${caseId}`,
         html: `
@@ -405,14 +373,14 @@ export class EmailService {
     caseId: string,
     caseName: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.log(`[TEST MODE] Contact rejection for case ${caseId} to ${requesterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
-        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: requesterEmail,
         subject: `Contact Request - Case ${caseId}`,
         html: `
@@ -453,14 +421,14 @@ export class EmailService {
     matchedCaseContactPhone: string,
     matchedCaseContactEmail: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.resend) {
       this.logger.log(`[TEST MODE] Match confirmed email for case ${caseId} to ${reporterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
-        from: this.configService.get('EMAIL_FROM') || '"FoundPakistan" <noreply@foundpakistan.pk>',
+      await this.resend.emails.send({
+        from: this.fromEmail,
         to: reporterEmail,
         subject: `Match Confirmed - ${caseName} Has Been Found!`,
         html: `
