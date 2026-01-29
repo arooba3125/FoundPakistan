@@ -22,9 +22,14 @@ export class EmailService {
         apiKey: mailjetApiKey,
         apiSecret: mailjetSecretKey,
       });
-      this.fromEmail = this.configService.get('EMAIL_FROM') || 'aroobashehzadi3125@gmail.com';
+      // Email must be just the email address, not "Name <email>" format
+      const emailFrom = this.configService.get('EMAIL_FROM') || 'aroobashehzadi3125@gmail.com';
+      // Extract just the email if it's in "Name <email>" format
+      const emailMatch = emailFrom.match(/<(.+)>/);
+      this.fromEmail = emailMatch ? emailMatch[1].trim() : emailFrom.trim();
       this.fromName = 'FoundPakistan';
       this.logger.log('✅ Email service configured with Mailjet HTTP API');
+      this.logger.log(`📧 Sending from: ${this.fromEmail}`);
     } else {
       this.logger.warn('⚠️ MAILJET credentials not set - emails will be logged only');
       this.mailjet = null;

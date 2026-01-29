@@ -34,9 +34,12 @@ let EmailService = class EmailService {
                 apiKey: mailjetApiKey,
                 apiSecret: mailjetSecretKey,
             });
-            this.fromEmail = this.configService.get('EMAIL_FROM') || 'aroobashehzadi3125@gmail.com';
+            const emailFrom = this.configService.get('EMAIL_FROM') || 'aroobashehzadi3125@gmail.com';
+            const emailMatch = emailFrom.match(/<(.+)>/);
+            this.fromEmail = emailMatch ? emailMatch[1].trim() : emailFrom.trim();
             this.fromName = 'FoundPakistan';
             this.logger.log('✅ Email service configured with Mailjet HTTP API');
+            this.logger.log(`📧 Sending from: ${this.fromEmail}`);
         }
         else {
             this.logger.warn('⚠️ MAILJET credentials not set - emails will be logged only');
