@@ -4,6 +4,7 @@ export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
     signup(signupDto: SignupDto): Promise<{
+        debugOtp?: string | undefined;
         message: string;
         email: string;
         requiresOtp: boolean;

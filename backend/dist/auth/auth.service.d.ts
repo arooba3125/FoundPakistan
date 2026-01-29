@@ -11,6 +11,7 @@ export declare class AuthService {
     private usersRepository;
     constructor(usersService: UsersService, jwtService: JwtService, emailService: EmailService, usersRepository: Repository<User>);
     signup(signupDto: SignupDto): Promise<{
+        debugOtp?: string | undefined;
         message: string;
         email: string;
         requiresOtp: boolean;
@@ -48,6 +49,7 @@ export declare class AuthService {
         message: string;
         email: string;
     }>;
+    private sendOtpToUserWithDebug;
     private sendOtpToUser;
     validateUser(userId: string): Promise<User>;
     private generateToken;

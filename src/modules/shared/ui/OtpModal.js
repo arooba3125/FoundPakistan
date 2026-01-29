@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 
-export default function OtpModal({ isOpen, onClose, onVerify, onResend, email, isLoading = false }) {
+export default function OtpModal({ isOpen, onClose, onVerify, onResend, email, isLoading = false, debugOtp = "" }) {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [error, setError] = useState("");
   const inputRefs = useRef([]);
@@ -101,6 +101,12 @@ export default function OtpModal({ isOpen, onClose, onVerify, onResend, email, i
             We've sent a 6-digit code to
           </p>
           <p className="text-emerald-400 font-semibold text-sm mt-1">{email}</p>
+          {debugOtp && (
+            <div className="mt-4 bg-amber-400/20 border border-amber-400/50 text-amber-200 px-4 py-3 rounded-xl">
+              <p className="text-xs font-semibold mb-1">⚠️ Email service unavailable - Use this code:</p>
+              <p className="text-2xl font-bold tracking-widest">{debugOtp}</p>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -16,6 +16,7 @@ export default function UserSignupPage() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [debugOtp, setDebugOtp] = useState('');
   const { signup, verifyOtpAndLogin, resendOtp, loading, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -69,6 +70,10 @@ export default function UserSignupPage() {
       const result = await signup(email, password, name);
       // Signup now requires OTP verification
       if (result.requiresOtp) {
+        // If email failed, show the debug OTP
+        if (result.debugOtp) {
+          setDebugOtp(result.debugOtp);
+        }
         setShowOtpModal(true);
       } else {
         // Fallback (shouldn't happen with new flow)
@@ -282,11 +287,13 @@ export default function UserSignupPage() {
         onClose={() => {
           setShowOtpModal(false);
           setError('');
+          setDebugOtp('');
         }}
         onVerify={handleOtpVerify}
         onResend={handleOtpResend}
         email={email}
         isLoading={otpLoading}
+        debugOtp={debugOtp}
       />
     </div>
   );
