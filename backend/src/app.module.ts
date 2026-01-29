@@ -24,6 +24,7 @@ import { EmailModule } from './email/email.module';
         password: configService.get<string>('DB_PASS'),
         autoLoadEntities: true,
         synchronize: true,
+        ssl: configService.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
       }),
       inject: [ConfigService],
     }),
