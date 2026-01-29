@@ -1,11 +1,14 @@
 import { ConfigService } from '@nestjs/config';
 export declare class EmailService {
     private configService;
-    private transporter;
+    private mailjet;
     private logger;
     private fromEmail;
+    private fromName;
     constructor(configService: ConfigService);
     private initializeMailjet;
+    private sendEmail;
+    private sendEmailDirect;
     sendVerificationEmail(email: string, token: string): Promise<void>;
     sendOtpEmail(email: string, otp: string): Promise<void>;
     sendCaseStatusEmail(email: string, caseId: string, status: string, caseName?: string, caseType?: string, rejectionReason?: string): Promise<void>;

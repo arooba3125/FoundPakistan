@@ -1,12 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
+import Mailjet from 'node-mailjet';
 
 @Injectable()
 export class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
+  private mailjet: Mailjet | null = null;
   private logger = new Logger('EmailService');
   private fromEmail: string;
+  private fromName: string;
 
   constructor(private configService: ConfigService) {
     this.initializeMailjet();
@@ -17,54 +18,76 @@ export class EmailService {
     const mailjetSecretKey = this.configService.get('MAILJET_SECRET_KEY');
 
     if (mailjetApiKey && mailjetSecretKey) {
-      this.transporter = nodemailer.createTransport({
-        host: 'in-v3.mailjet.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: mailjetApiKey,
-          pass: mailjetSecretKey,
-        },
+      this.mailjet = new Mailjet({
+        apiKey: mailjetApiKey,
+        apiSecret: mailjetSecretKey,
       });
-      this.fromEmail = this.configService.get('EMAIL_FROM') || 'FoundPakistan <noreply@foundpakistan.pk>';
-      this.logger.log('✅ Email service configured with Mailjet');
+      this.fromEmail = this.configService.get('EMAIL_FROM') || 'aroobashehzadi3125@gmail.com';
+      this.fromName = 'FoundPakistan';
+      this.logger.log('✅ Email service configured with Mailjet HTTP API');
     } else {
       this.logger.warn('⚠️ MAILJET credentials not set - emails will be logged only');
-      this.transporter = null;
+      this.mailjet = null;
     }
+  }
+
+  private async sendEmail(to: string, subject: string, htmlContent: string): Promise<void> {
+    if (!this.mailjet) {
+      this.logger.warn(`[TEST MODE] Email to ${to}: ${subject}`);
+      return;
+    }
+
+    try {
+      await this.mailjet.post('send', { version: 'v3.1' }).request({
+        Messages: [
+          {
+            From: {
+              Email: this.fromEmail,
+              Name: this.fromName,
+            },
+            To: [
+              {
+                Email: to,
+              },
+            ],
+            Subject: subject,
+            HTMLPart: htmlContent,
+          },
+        ],
+      });
+      this.logger.log(`✅ Email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send email to ${to}:`, error.message);
+      throw error;
+    }
+  }
+
+  private async sendEmailDirect(options: { from: string; to: string; subject: string; html: string }): Promise<void> {
+    await this.sendEmail(options.to, options.subject, options.html);
   }
 
   async sendVerificationEmail(email: string, token: string): Promise<void> {
     const verificationCode = token.substring(0, 6).toUpperCase();
 
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.warn(`[TEST MODE] Verification code for ${email}: ${verificationCode}`);
       return;
     }
 
-    try {
-      await this.transporter.sendMail({
-        from: this.fromEmail,
-        to: email,
-        subject: 'Verify Your Email - FoundPakistan',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #059669;">Welcome to FoundPakistan!</h2>
-            <p>Thank you for registering. Please verify your email address to complete your registration.</p>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <h3 style="margin: 0 0 10px 0;">Your Verification Code:</h3>
-              <p style="font-size: 32px; font-weight: bold; color: #059669; margin: 0; letter-spacing: 5px;">${verificationCode}</p>
-            </div>
-            <p>This code will expire in 15 minutes.</p>
-            <p style="color: #6b7280; font-size: 12px;">If you didn't create an account, please ignore this email.</p>
-          </div>
-        `,
-      });
-      this.logger.log(`✅ Verification email sent to ${email}`);
-    } catch (error) {
-      this.logger.error(`Failed to send email to ${email}:`, error.message);
-      throw error;
-    }
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #059669;">Welcome to FoundPakistan!</h2>
+        <p>Thank you for registering. Please verify your email address to complete your registration.</p>
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <h3 style="margin: 0 0 10px 0;">Your Verification Code:</h3>
+          <p style="font-size: 32px; font-weight: bold; color: #059669; margin: 0; letter-spacing: 5px;">${verificationCode}</p>
+        </div>
+        <p>This code will expire in 15 minutes.</p>
+        <p style="color: #6b7280; font-size: 12px;">If you didn't create an account, please ignore this email.</p>
+      </div>
+    `;
+
+    await this.sendEmail(email, 'Verify Your Email - FoundPakistan', html);
   }
 
   async sendOtpEmail(email: string, otp: string): Promise<void> {
@@ -74,36 +97,27 @@ export class EmailService {
       throw new Error(`Invalid email address format: ${email}`);
     }
 
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.warn(`[TEST MODE] OTP for ${email}: ${otp}`);
       return;
     }
 
-    try {
-      await this.transporter.sendMail({
-        from: this.fromEmail,
-        to: email,
-        subject: 'Your Login OTP - FoundPakistan',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h2 style="color: #059669;">Your Login Verification Code</h2>
-            <p>You have requested to login to your FoundPakistan account. Please use the following code to complete your login:</p>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
-              <h3 style="margin: 0 0 10px 0; color: #111827;">Your Verification Code:</h3>
-              <p style="font-size: 36px; font-weight: bold; color: #059669; margin: 0; letter-spacing: 8px; font-family: monospace;">${otp}</p>
-            </div>
-            <p style="color: #6b7280; font-size: 14px;">This code will expire in <strong>5 minutes</strong>.</p>
-            <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">If you didn't request this code, please ignore this email or contact support if you have concerns.</p>
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-            <p style="color: #9ca3af; font-size: 12px;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
-          </div>
-        `,
-      });
-      this.logger.log(`✅ OTP email sent to ${email}`);
-    } catch (error) {
-      this.logger.error(`Failed to send OTP email to ${email}:`, error.message);
-      throw error;
-    }
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #059669;">Your Login Verification Code</h2>
+        <p>You have requested to login to your FoundPakistan account. Please use the following code to complete your login:</p>
+        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
+          <h3 style="margin: 0 0 10px 0; color: #111827;">Your Verification Code:</h3>
+          <p style="font-size: 36px; font-weight: bold; color: #059669; margin: 0; letter-spacing: 8px; font-family: monospace;">${otp}</p>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">This code will expire in <strong>5 minutes</strong>.</p>
+        <p style="color: #6b7280; font-size: 12px; margin-top: 20px;">If you didn't request this code, please ignore this email or contact support if you have concerns.</p>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+        <p style="color: #9ca3af; font-size: 12px;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
+      </div>
+    `;
+
+    await this.sendEmail(email, 'Your Login OTP - FoundPakistan', html);
   }
 
   async sendCaseStatusEmail(
@@ -114,7 +128,7 @@ export class EmailService {
     caseType?: string,
     rejectionReason?: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.log(`[TEST MODE] Case ${caseId} status updated to ${status} for ${email}`);
       return;
     }
@@ -153,52 +167,41 @@ export class EmailService {
 
     const caseTypeText = caseType === 'missing' ? 'Missing Person' : 'Found Person';
 
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
+        </div>
+        <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
+          <h2 style="color: #111827; margin-top: 0;">Case Status Update</h2>
+          ${caseName ? `<p style="font-size: 18px; color: #374151; margin: 8px 0;"><strong>Case:</strong> ${caseName}</p>` : ''}
+          ${caseType ? `<p style="color: #6b7280; margin: 4px 0;"><strong>Type:</strong> ${caseTypeText}</p>` : ''}
+          <p style="color: #6b7280; margin: 4px 0;"><strong>Case ID:</strong> ${caseId}</p>
+        </div>
+        <div style="background-color: ${statusColor}15; border-left: 4px solid ${statusColor}; padding: 20px; margin: 24px 0; border-radius: 4px;">
+          <p style="color: #111827; font-size: 16px; margin: 0; line-height: 1.6;">${statusMessage}</p>
+          ${additionalInfo}
+        </div>
+        <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
+          <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">You can view your case details and manage your cases by logging into your FoundPakistan account.</p>
+          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile" style="display: inline-block; background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; font-weight: 600;">View Your Cases</a>
+        </div>
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
+        <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
+      </div>
+    `;
+
     try {
-      await this.transporter.sendMail({
-        from: this.fromEmail,
-        to: email,
-        subject: subject,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
-            </div>
-            
-            <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
-              <h2 style="color: #111827; margin-top: 0;">Case Status Update</h2>
-              ${caseName ? `<p style="font-size: 18px; color: #374151; margin: 8px 0;"><strong>Case:</strong> ${caseName}</p>` : ''}
-              ${caseType ? `<p style="color: #6b7280; margin: 4px 0;"><strong>Type:</strong> ${caseTypeText}</p>` : ''}
-              <p style="color: #6b7280; margin: 4px 0;"><strong>Case ID:</strong> ${caseId}</p>
-            </div>
-
-            <div style="background-color: ${statusColor}15; border-left: 4px solid ${statusColor}; padding: 20px; margin: 24px 0; border-radius: 4px;">
-              <p style="color: #111827; font-size: 16px; margin: 0; line-height: 1.6;">${statusMessage}</p>
-              ${additionalInfo}
-            </div>
-
-            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">You can view your case details and manage your cases by logging into your FoundPakistan account.</p>
-              <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile" style="display: inline-block; background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 16px; font-weight: 600;">View Your Cases</a>
-            </div>
-
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
-            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
-            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 8px 0 0 0;">If you have questions, please contact our support team through your account dashboard.</p>
-          </div>
-        `,
-      });
+      await this.sendEmail(email, subject, html);
       this.logger.log(`Case status email sent to ${email} for case ${caseId} (${status})`);
     } catch (error) {
-      this.logger.error(
-        `Failed to send case status email to ${email}:`,
-        error.message,
-      );
+      this.logger.error(`Failed to send case status email to ${email}:`, error.message);
       // Don't throw; case update should succeed even if email fails
     }
   }
 
   async sendLoginNotificationEmail(email: string, timestamp: Date, ipAddress?: string): Promise<void> {
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.log(`[TEST MODE] Login notification for ${email} at ${timestamp.toISOString()}${ipAddress ? ` from IP: ${ipAddress}` : ''}`);
       return;
     }
@@ -214,51 +217,26 @@ export class EmailService {
       timeZoneName: 'short',
     });
 
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
+        <div style="text-align: center; margin-bottom: 30px;"><h1 style="color: #059669; margin: 0;">FoundPakistan</h1></div>
+        <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
+          <h2 style="color: #111827; margin-top: 0;">New Login Detected</h2>
+          <p style="color: #374151;">We detected a new login to your FoundPakistan account.</p>
+        </div>
+        <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 24px 0;">
+          <p><strong>Date & Time:</strong> ${formattedDate}</p>
+          ${ipAddress ? `<p><strong>IP Address:</strong> ${ipAddress}</p>` : ''}
+        </div>
+        <p style="color: #9ca3af; font-size: 12px;">This is an automated message from FoundPakistan.</p>
+      </div>
+    `;
+
     try {
-      await this.transporter.sendMail({
-        from: this.fromEmail,
-        to: email,
-        subject: '🔐 New Login Detected - FoundPakistan',
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #059669; margin: 0;">FoundPakistan</h1>
-            </div>
-            
-            <div style="background-color: #f9fafb; padding: 24px; border-radius: 8px; margin-bottom: 24px;">
-              <h2 style="color: #111827; margin-top: 0;">New Login Detected</h2>
-              <p style="color: #374151; font-size: 16px; line-height: 1.6;">
-                We detected a new login to your FoundPakistan account.
-              </p>
-            </div>
-
-            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 24px 0; border-radius: 4px;">
-              <p style="color: #111827; font-size: 16px; margin: 0 0 12px 0;"><strong>Login Details:</strong></p>
-              <p style="color: #374151; margin: 8px 0;"><strong>Date & Time:</strong> ${formattedDate}</p>
-              ${ipAddress ? `<p style="color: #374151; margin: 8px 0;"><strong>IP Address:</strong> ${ipAddress}</p>` : ''}
-            </div>
-
-            <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; margin: 24px 0; border-radius: 4px;">
-              <p style="color: #92400e; font-size: 14px; margin: 0; line-height: 1.6;">
-                <strong>⚠️ Wasn't you?</strong><br/>
-                If you didn't log in, please secure your account immediately by changing your password. If you notice any suspicious activity, contact our support team right away.
-              </p>
-            </div>
-
-            <div style="margin-top: 32px; padding-top: 24px; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">This is an automated security notification from FoundPakistan.</p>
-              <p style="color: #6b7280; font-size: 14px; margin: 8px 0;">If you have any concerns, please contact our support team through your account dashboard.</p>
-            </div>
-
-            <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 32px 0;" />
-            <p style="color: #9ca3af; font-size: 12px; text-align: center; margin: 0;">This is an automated message from FoundPakistan. Please do not reply to this email.</p>
-          </div>
-        `,
-      });
+      await this.sendEmail(email, '🔐 New Login Detected - FoundPakistan', html);
       this.logger.log(`Login notification email sent to ${email}`);
     } catch (error) {
       this.logger.error(`Failed to send login notification email to ${email}:`, error.message);
-      // Don't throw; login should succeed even if notification email fails
     }
   }
 
@@ -269,13 +247,13 @@ export class EmailService {
     requesterEmail: string,
     requesterMessage?: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.log(`[TEST MODE] Contact request for case ${caseId} from ${requesterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
+      await this.sendEmailDirect({
         from: this.fromEmail,
         to: caseReporterEmail,
         subject: `Contact Request for Case ${caseId} - FoundPakistan`,
@@ -332,13 +310,13 @@ export class EmailService {
     contactPhone: string,
     contactEmail: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.log(`[TEST MODE] Contact approval for case ${caseId} to ${requesterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
+      await this.sendEmailDirect({
         from: this.fromEmail,
         to: requesterEmail,
         subject: `Contact Request Approved - Case ${caseId}`,
@@ -382,13 +360,13 @@ export class EmailService {
     caseId: string,
     caseName: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.log(`[TEST MODE] Contact rejection for case ${caseId} to ${requesterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
+      await this.sendEmailDirect({
         from: this.fromEmail,
         to: requesterEmail,
         subject: `Contact Request - Case ${caseId}`,
@@ -430,13 +408,13 @@ export class EmailService {
     matchedCaseContactPhone: string,
     matchedCaseContactEmail: string,
   ): Promise<void> {
-    if (!this.transporter) {
+    if (!this.mailjet) {
       this.logger.log(`[TEST MODE] Match confirmed email for case ${caseId} to ${reporterEmail}`);
       return;
     }
 
     try {
-      await this.transporter.sendMail({
+      await this.sendEmailDirect({
         from: this.fromEmail,
         to: reporterEmail,
         subject: `Match Confirmed - ${caseName} Has Been Found!`,
